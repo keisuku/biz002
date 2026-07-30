@@ -1,0 +1,12 @@
+phase0:
+  symbols: [BTCUSDT, ETHUSDT]
+  market: futures_um
+  dataset: aggTrades
+  days: 7
+
+phase2:
+  core_symbols: [BTCUSDT, ETHUSDT]
+  universe_policy: point_in_time_trailing_quote_volume
+  universe_size: 20
+  include_delisted_symbols: true
+
