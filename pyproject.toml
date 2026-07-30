@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=75", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "momentum-ignition-research"
+version = "0.1.0"
+description = "Reproducible research toolkit for latency-aware momentum ignition hypotheses."
+requires-python = ">=3.11"
+dependencies = [
+  "numpy>=2.0,<3",
+  "polars>=1.32,<2",
+  "pyarrow>=18,<24",
+  "PyYAML>=6,<7",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+mi-download = "momentum_ignition.data.download:main"
+mi-to-seconds = "momentum_ignition.data.to_seconds:main"
+mi-reconcile = "momentum_ignition.data.reconcile:main"
+mi-run-experiment = "momentum_ignition.experiment:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
