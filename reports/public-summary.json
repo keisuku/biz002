@@ -1,0 +1,34 @@
+{
+  "as_of": "2026-07-31",
+  "status": "phase0_initial_definition_failed_preliminary_kill_screen",
+  "period": {
+    "start": "2026-07-23",
+    "end": "2026-07-29",
+    "days": 7
+  },
+  "cost_assumption_bps_round_trip": 13.0,
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "aggregate_trade_rows": 6333155,
+      "estimated_trades": 17750020,
+      "base_impulses": 146,
+      "median_mfe_60s_bps_earliest": 1.02,
+      "median_mfe_60s_bps_plus_10s": 0.59,
+      "median_net_60s_bps_earliest": -12.73,
+      "median_net_60s_bps_plus_10s": -12.98
+    },
+    {
+      "symbol": "ETHUSDT",
+      "aggregate_trade_rows": 6212878,
+      "estimated_trades": 28489675,
+      "base_impulses": 72,
+      "median_mfe_60s_bps_earliest": 1.30,
+      "median_mfe_60s_bps_plus_10s": 0.61,
+      "median_net_60s_bps_earliest": -13.08,
+      "median_net_60s_bps_plus_10s": -13.00
+    }
+  ],
+  "warning": "Seven-day engineering spike only. No trading conclusion."
+}
+

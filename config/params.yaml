@@ -1,0 +1,43 @@
+schema_version: 1
+
+features:
+  calm_window_seconds: 1800
+  calm_reference_seconds: 604800
+  calm_percentile: 0.25
+  sigma_reference_seconds: 3600
+  velocity_windows_seconds: [5, 10, 30]
+  tick_window_seconds: 10
+  flow_window_seconds: 10
+  impact_window_seconds: 10
+  minimum_reference_seconds: 900
+
+trigger:
+  velocity_window_seconds: 10
+  sigma_threshold: 4.0
+  tick_threshold: 10.0
+  flow_threshold: 0.6
+  impact_threshold: 3.0
+  require_price_flow_alignment: true
+  cooldown_seconds: 60
+
+hypotheses:
+  instant_continuation:
+    enabled: true
+  pause_then_continue:
+    enabled: true
+    search_seconds: 10
+    maximum_giveback_fraction: 0.30
+    restart_window_seconds: 2
+  pullback_reclaim:
+    enabled: true
+    search_seconds: 60
+    minimum_retrace_fraction: 0.20
+    maximum_retrace_fraction: 0.60
+    reclaim_window_seconds: 2
+
+execution:
+  decision_to_market_seconds: [0, 3, 7, 10, 15, 20]
+  taker_fee_bps_per_side: 5.0
+  slippage_bps_per_side: 1.5
+  outcome_horizons_seconds: [15, 30, 60, 120, 300, 900]
+
