@@ -73,6 +73,12 @@ events:
 outcomes:
   horizons: [15, 30, 60, 120, 300, 900]
 
+# 人間が通知を見て操作する遅延。0 秒でも、10 秒速度窓が確定した後の約定なので、
+# 初動開始からの最短年齢は velocity_primary_k + reaction_delay_seconds。
+latency:
+  reaction_delay_seconds: [0, 3, 7, 10, 15, 20]
+  diagnostic_horizon_seconds: 60
+
 costs:
   taker_fee_bps: 5.0               # 片道 0.05%
   round_trip_sides: 2              # 往復 0.10%
