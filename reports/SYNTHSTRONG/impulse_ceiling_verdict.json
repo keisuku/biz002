@@ -1,0 +1,11 @@
+{
+  "verdict": "CEILING_CLEARS_BAR",
+  "meaning": "天井が基準を超えた組み合わせがある。勝てる証拠ではなく、実時間検出器を検討してよいというだけ。",
+  "best_window_s": 3,
+  "best_impulse_age_s": 1,
+  "best_median_mfe_bps": 582.4076983110206,
+  "median_cost_bps": 20.480186758344075,
+  "best_mfe_cost_multiple": 28.437616569767606,
+  "required_multiple": 3.0,
+  "n": 204
+}

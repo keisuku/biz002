@@ -8,6 +8,9 @@ Phase 1:
 Phase 2:
     python -m src.cli refs          --symbol BTCUSDT --start ... --end ...
     python -m src.cli events        --symbol BTCUSDT --start ... --end ...
+    python -m src.cli funnel        --symbol BTCUSDT --start ... --end ...   # 発火条件の律速診断
+    python -m src.cli impulse-scan  --symbol BTCUSDT --start ... --end ...   # 初動エントリの天井（上限値）
+    python -m src.cli ride          --symbol BTCUSDT --start ... --end ...   # 乗って放置する手法を R 倍率で測る
     python -m src.cli analyze       --symbol BTCUSDT            # §4.1〜4.5
     python -m src.cli latency       --symbol BTCUSDT            # 手動執行の 0〜20 秒遅延
     python -m src.cli validate      --symbol BTCUSDT --start ... --end ...   # §6
@@ -144,6 +147,106 @@ def cmd_events(args, params) -> None:
     }
     (out / "events_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
+
+
+def cmd_funnel(args, params) -> None:
+    """発火条件のどれが律速かを見る診断。閾値は一切変更しない（§9 の試行回数に数えない）。"""
+    from .analysis import funnel as funnel_mod
+
+    symbol = args.symbol
+    merged = pipe.build_funnel(params, symbol, _days(params, args))
+    table = funnel_mod.funnel_table(merged, params)
+    dist = funnel_mod.ratio_distribution(merged, params)
+    out = _report_dir(params, symbol)
+    table.write_csv(out / "funnel.csv")
+    dist.write_csv(out / "funnel_ratio_distribution.csv")
+    summary = {
+        "symbol": symbol,
+        "seconds_evaluated": merged["n_data_ok"],
+        "seconds_calm": merged["n_calm_ok"],
+        "seconds_passing_all_conditions": merged["n_all"],
+        "thresholds": dict(params["thresholds"]),
+    }
+    (out / "funnel_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print("\n[条件別] binding_factor が大きいほど、その条件が件数を絞っている")
+    print(table)
+    print("\n[凪の秒における比率分布] threshold_percentile が 100 に近いほど厳しい閾値")
+    print(dist)
+
+
+def cmd_impulse_scan(args, params) -> None:
+    """初動エントリの天井を測る。**これはバックテストではない**（開始時刻に未来を使う）。
+
+    天井がコスト基準に届かなければ、検出器をいくら速くしても勝てない。
+    その判定だけを目的にしている。
+    """
+    from .analysis import impulse as imp
+
+    symbol = args.symbol
+    entries = pipe.build_impulse_scan(params, symbol, _days(params, args))
+    out = _report_dir(params, symbol)
+    if entries.height == 0:
+        print("初動が 1 件もラベルされなかった。期間かデータを確認すること。")
+        return
+    table = imp.ceiling_table(entries, params)
+    v = imp.verdict(table)
+    table.write_csv(out / "impulse_ceiling.csv")
+    (out / "impulse_ceiling_verdict.json").write_text(
+        json.dumps(v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    print("※ 初動の開始時刻に未来を使った**上限値**であり、実行可能な戦略ではない。")
+    print(json.dumps(v, indent=2, ensure_ascii=False, default=str))
+    compact = table.select(
+        "window_s", "sigma_mult", "impulse_age_s", "n",
+        pl.col("median_impulse_bps").round(2),
+        pl.col("median_mfe_bps").round(2),
+        pl.col("median_cost_bps").round(2),
+        pl.col("mfe_cost_multiple").round(2),
+        pl.col("mean_net_bps").round(2),
+        pl.col("win_rate_after_cost").round(3),
+        "ceiling_clears_bar",
+    ).sort(["window_s", "impulse_age_s"])
+    print("\n初動年齢 = 検出窓 + 通知遅延 + 人間の反応。age=0 は不可能な理想値（天井）。")
+    with pl.Config(tbl_rows=60, tbl_cols=15, fmt_str_lengths=30):
+        print(compact)
+
+
+def cmd_ride(args, params) -> None:
+    """特大の動きに乗ってストップを置き放置する手法を、R 倍率で測る。
+
+    指示書のスキャル前提（60 秒・MFE 中央値・凪条件）とは別の手法として扱う。
+    """
+    from .analysis import trend_ride as ride
+
+    symbol = args.symbol
+    rides = pipe.build_trend_rides(params, symbol, _days(params, args))
+    out = _report_dir(params, symbol)
+    if rides.height == 0:
+        print("初動が 1 件もラベルされなかった。期間かデータを確認すること。")
+        return
+    by = ["window_s", "sigma_mult", "max_hold_s"]
+    summary = ride.summarize(rides, params, by=by)
+    strata = ride.stratify(rides, params)
+    v = ride.verdict(summary, params)
+
+    rides.write_parquet(out / "trend_rides.parquet")
+    summary.write_csv(out / "trend_ride_summary.csv")
+    strata.write_csv(out / "trend_ride_strata.csv")
+    (out / "trend_ride_verdict.json").write_text(
+        json.dumps(v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+
+    print("R 倍率 = 損切り幅 1 個ぶん。負け -1R、勝ちは伸びたぶん。")
+    print("**中央値ではなく平均 R と右の裾（+3R 以上の割合）を見ること。**")
+    print(json.dumps(v, indent=2, ensure_ascii=False, default=str))
+    cols = ["window_s", "sigma_mult", "max_hold_s", "n", "win_rate", "mean_r",
+            "median_r", "total_r", "profit_factor", "p_ge_3r", "max_r", "stop_rate"]
+    with pl.Config(tbl_rows=60, tbl_cols=15):
+        print(summary.select([c for c in cols if c in summary.columns]))
+        print("\n[層別] 順張り/逆張り・ボラ局面・売買方向")
+        scols = ["stratum", "max_hold_s", "n", "win_rate", "mean_r", "total_r",
+                 "profit_factor", "p_ge_3r"]
+        print(strata.select([c for c in scols if c in strata.columns]))
 
 
 def cmd_analyze(args, params) -> None:
@@ -340,6 +443,9 @@ def main(argv=None) -> None:
     p = sub.add_parser("verify-flags"); add_common(p); p.set_defaults(fn=cmd_verify_flags)
     p = sub.add_parser("refs"); add_common(p); p.set_defaults(fn=cmd_refs)
     p = sub.add_parser("events"); add_common(p); p.set_defaults(fn=cmd_events)
+    p = sub.add_parser("funnel"); add_common(p); p.set_defaults(fn=cmd_funnel)
+    p = sub.add_parser("impulse-scan"); add_common(p); p.set_defaults(fn=cmd_impulse_scan)
+    p = sub.add_parser("ride"); add_common(p); p.set_defaults(fn=cmd_ride)
     p = sub.add_parser("analyze"); add_common(p)
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")

@@ -28,7 +28,17 @@ def bars_path(params: Params, symbol: str, day: date) -> Path:
     )
 
 
-def aggtrades_to_seconds(trades: pl.DataFrame, day: date) -> pl.DataFrame:
+def aggtrades_to_seconds(
+    trades: pl.DataFrame, day: date, prev_close: float | None = None
+) -> pl.DataFrame:
+    """Aggregate one UTC day of trades onto a dense one-second grid.
+
+    `prev_close` is the previous day's final close. Seconds before the day's
+    first trade are filled with it, never with a later price: filling those
+    seconds backwards would place a future price on a past timestamp, which is
+    a lookahead leak into every rolling statistic computed downstream. Without
+    a previous close those seconds stay null and are excluded by `data_ok`.
+    """
     t0 = day_start_ts(day)
     t1 = t0 + SECONDS_PER_DAY
     selected = (
@@ -38,8 +48,19 @@ def aggtrades_to_seconds(trades: pl.DataFrame, day: date) -> pl.DataFrame:
         .sort(["ts_ms", "agg_trade_id"])
         .with_columns(
             (pl.col("ts_ms") // 1000).cast(pl.Int64).alias("ts"),
+            # 日の最初の約定のギャップは、前日終値が分かるならそこから測る。
+            # 0 で埋めると日境界だけスリッページ推定が甘くなる。
             (
-                (pl.col("price") / pl.col("price").shift(1) - 1.0).abs() * 1e4
+                (
+                    pl.col("price")
+                    / (
+                        pl.col("price").shift(1)
+                        if prev_close is None
+                        else pl.col("price").shift(1).fill_null(prev_close)
+                    )
+                    - 1.0
+                ).abs()
+                * 1e4
             )
             .fill_null(0.0)
             .alias("_gap_bps"),
@@ -94,7 +115,11 @@ def aggtrades_to_seconds(trades: pl.DataFrame, day: date) -> pl.DataFrame:
     return (
         timeline.join(grouped, on="ts", how="left")
         .with_columns(pl.col("trade_count").is_null().alias("is_filled"))
-        .with_columns(pl.col("close").forward_fill().backward_fill())
+        .with_columns(
+            pl.col("close").forward_fill()
+            if prev_close is None
+            else pl.col("close").forward_fill().fill_null(prev_close)
+        )
         .with_columns(
             pl.col("open").fill_null(pl.col("close")),
             pl.col("high").fill_null(pl.col("close")),
@@ -156,6 +181,15 @@ def gap_report(bars: pl.DataFrame, max_gap: int) -> pl.DataFrame:
     )
 
 
+def _previous_close(params: Params, symbol: str, day: date) -> float | None:
+    """前日の最終終値。日境界の穴埋めを未来ではなく過去の価格で行うために使う。"""
+    previous = bars_path(params, symbol, day - timedelta(days=1))
+    if not previous.exists():
+        return None
+    closes = pl.read_parquet(previous, columns=["close"])["close"].drop_nulls()
+    return float(closes[-1]) if closes.len() else None
+
+
 def build_day(
     params: Params, symbol: str, day: date, overwrite: bool = False
 ) -> dict:
@@ -177,7 +211,7 @@ def build_day(
             "path": str(destination),
         }
     trades = pl.read_parquet(source)
-    bars = aggtrades_to_seconds(trades, day)
+    bars = aggtrades_to_seconds(trades, day, prev_close=_previous_close(params, symbol, day))
     destination.parent.mkdir(parents=True, exist_ok=True)
     bars.write_parquet(destination)
     gaps = gap_report(bars, int(params.get_path("bars.max_fill_gap_seconds")))

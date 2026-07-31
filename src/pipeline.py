@@ -143,6 +143,137 @@ def build_events(params: Params, symbol: str, days: list[date],
     return ledger.sort("event_ts"), sim
 
 
+def build_funnel(params: Params, symbol: str, days: list[date],
+                 minute_rv: pl.DataFrame | None = None) -> dict:
+    """発火条件のファネル診断（§3.3 のどの条件が律速かを見る）。件数は変えない。"""
+    from .analysis import funnel as funnel_mod
+
+    if minute_rv is None:
+        minute_rv = load_refs(params, symbol)
+    calm_window = int(params.get_path("thresholds.calm_window"))
+    pct = float(params.get_path("thresholds.calm_percentile"))
+    ref_days = int(params.get_path("features.calm_ref_days"))
+    sample = int(params.get_path("features.calm_ref_sample_seconds"))
+    calm_excl = int(params.get_path("features.calm_exclude_seconds"))
+    warm = int(params.get_path("validation.warmup_seconds"))
+    thresholds = feat.calm_threshold_series(minute_rv, calm_window, pct, ref_days, sample)
+
+    chunks = []
+    for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
+        t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
+        sec = load_seconds(params, symbol, t0 - warm, t1)
+        if sec.height == 0:
+            continue
+        core = feat.compute_core_features(sec, params)
+        feats = feat.add_calm_columns(core, thresholds, calm_window, calm_excl)
+        feats = feats.filter((pl.col("ts") >= t0) & (pl.col("ts") < t1))
+        if feats.height:
+            chunks.append(funnel_mod.count_chunk(feats, params))
+    return funnel_mod.merge_chunks(chunks)
+
+
+def build_impulse_scan(params: Params, symbol: str, days: list[date]) -> pl.DataFrame:
+    """初動エントリの天井測定（src/analysis/impulse.py）。検出器は使わない。
+
+    コストは発火台帳と**同じモデル**で見積もる（比較可能にするため）。そのため
+    core features を計算して gap / range 列をエントリ秒から引く。
+    """
+    from .analysis import impulse as imp
+
+    cfg = params["impulse_scan"]
+    warm = int(params.get_path("validation.warmup_seconds"))
+    fwd = int(max(cfg["horizons"]) + max(cfg["entry_ages"]) + max(cfg["windows"]) + 5)
+    frames = []
+    for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
+        t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
+        sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        if sec.height == 0:
+            continue
+        core = feat.compute_core_features(sec, params)
+        costs = out_mod.add_costs(
+            core.select("ts", "gap_mean_bps_ref", "gap_max_bps_w", "range_bps_1s"), params
+        ).select("ts", "cost_pct")
+        for w in cfg["windows"]:
+            for mult in cfg["sigma_mults"]:
+                starts = imp.label_impulse_starts(
+                    sec, int(w), float(mult), int(cfg["cooldown_seconds"]),
+                    int(params.get_path("features.sigma_ref_seconds")),
+                )
+                starts = starts.filter((pl.col("ts") >= t0) & (pl.col("ts") < t1))
+                if starts.height == 0:
+                    continue
+                e = imp.oracle_entries(sec, starts, int(w), list(cfg["entry_ages"]),
+                                       list(cfg["horizons"]), costs)
+                if e.height:
+                    frames.append(e.with_columns(pl.lit(float(mult)).alias("sigma_mult"),
+                                                 pl.lit(symbol).alias("symbol")))
+    return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+
+def build_trend_rides(params: Params, symbol: str, days: list[date],
+                      minute_rv: pl.DataFrame | None = None) -> pl.DataFrame:
+    """「特大の動きに乗ってストップを置いて放置」の全トレードを返す。
+
+    凪条件は使わない。初動のラベルは impulse.label_impulse_starts（値動きだけで決まる）。
+    """
+    from .analysis import impulse as imp
+    from .analysis import trend_ride as ride
+
+    cfg = params["trend_ride"]
+    scan = params["impulse_scan"]
+    warm = int(cfg["warmup_seconds"])
+    holds = [int(h) for h in cfg["max_hold_seconds"]]
+    fwd = max(holds) + int(cfg["entry_age_seconds"]) + 5
+
+    vol = None
+    if minute_rv is None:
+        try:
+            minute_rv = load_refs(params, symbol)
+        except FileNotFoundError:
+            minute_rv = None
+    if minute_rv is not None:
+        rv_col = f"rv_{int(params.get_path('thresholds.calm_window'))}"
+        if rv_col in minute_rv.columns:
+            vol = ride.vol_regime_series(
+                minute_rv, rv_col, int(cfg["vol_regime_ref_days"]),
+                int(params.get_path("features.calm_ref_sample_seconds")),
+            )
+
+    frames = []
+    for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
+        t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
+        sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        if sec.height == 0:
+            continue
+        core = feat.compute_core_features(sec, params)
+        costs = out_mod.add_costs(
+            core.select("ts", "gap_mean_bps_ref", "gap_max_bps_w", "range_bps_1s"), params
+        ).select("ts", "cost_pct")
+        ctx = ride.trend_context(sec, int(cfg["trend_lookback_seconds"]),
+                                 int(cfg["trend_ref_seconds"]))
+        if vol is not None:
+            ctx = ctx.join_asof(vol.sort("ts"), on="ts", strategy="backward")
+        else:
+            ctx = ctx.with_columns(pl.lit(None, dtype=pl.Float64).alias("vol_z"))
+
+        for w in scan["windows"]:
+            for mult in scan["sigma_mults"]:
+                starts = imp.label_impulse_starts(
+                    sec, int(w), float(mult), int(scan["cooldown_seconds"]),
+                    int(params.get_path("features.sigma_ref_seconds")),
+                )
+                starts = starts.filter((pl.col("ts") >= t0) & (pl.col("ts") < t1))
+                if starts.height == 0:
+                    continue
+                starts = starts.with_columns(pl.lit(symbol).alias("symbol"))
+                for hold in holds:
+                    r = ride.simulate_rides(starts, sec, params, hold, costs, ctx)
+                    if r.height:
+                        frames.append(r.with_columns(pl.lit(int(w)).alias("window_s"),
+                                                     pl.lit(float(mult)).alias("sigma_mult")))
+    return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+
 def simulate_exits_for_ledger(params: Params, symbol: str, ledger: pl.DataFrame,
                               fixed_horizon: int,
                               stop_fill: exits_mod.StopFillEstimator | None = None,

@@ -1,0 +1,15 @@
+{
+  "verdict": "POSITIVE_EXPECTANCY",
+  "note": "R 倍率の平均が正。ただしサンプル数と局面の偏りを必ず確認すること。",
+  "best_max_hold_s": 3600,
+  "n": 275,
+  "win_rate": 0.8145454545454546,
+  "mean_r": 41.93046874929092,
+  "median_r": 38.846265477380534,
+  "total_r": 11530.878906055003,
+  "profit_factor": 139.5348035857917,
+  "max_r": 137.87986861368128,
+  "mean_cost_r": 0.8461414707428055,
+  "enough_wins": true,
+  "min_wins": 30
+}
