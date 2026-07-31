@@ -155,7 +155,10 @@ def simulate_rides(events: pl.DataFrame, seconds: pl.DataFrame, params: Params,
             "trend_align": (None if trend_z is None
                             else bool(np.sign(trend_z) == d)),
         })
-    return pl.DataFrame(rows)
+    # Long real-data segments can have more than Polars' default inference
+    # sample of leading rows without trend context, followed by finite trend_z
+    # values.  Infer from all rows so the column is Float64 rather than Null.
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 def summarize(rides: pl.DataFrame, params: Params,
@@ -191,7 +194,13 @@ def summarize(rides: pl.DataFrame, params: Params,
 
 
 def stratify(rides: pl.DataFrame, params: Params) -> pl.DataFrame:
-    """順張り / 逆張り、ボラ局面別の集計。期待値が全く違う可能性が高い。"""
+    """順張り / 逆張り、ボラ局面別の集計。
+
+    A ride table can contain several pre-registered ``window_s`` /
+    ``sigma_mult`` definitions.  They must remain separate: pooling them would
+    count the same market move several times and make the stratum sample size
+    and expectancy uninterpretable.
+    """
     if rides.height == 0:
         return pl.DataFrame(schema={"stratum": pl.String, "n": pl.UInt32})
     edges = [float(x) for x in params.get_path("trend_ride.trend_z_buckets")]
@@ -206,9 +215,12 @@ def stratify(rides: pl.DataFrame, params: Params) -> pl.DataFrame:
         pl.when(pl.col("direction") > 0).then(pl.lit("long")).otherwise(pl.lit("short")).alias("side"),
     )
     frames = []
+    signal_cols = [
+        c for c in ("window_s", "sigma_mult") if c in r.columns
+    ]
     for cols, name in ((["align"], "align"), (["vol_bucket"], "vol"), (["side"], "side"),
                        (["align", "vol_bucket"], "align_x_vol")):
-        s = summarize(r, params, by=cols + ["max_hold_s"])
+        s = summarize(r, params, by=signal_cols + cols + ["max_hold_s"])
         parts: list[pl.Expr] = [pl.lit(f"{name}:")]
         for j, c in enumerate(cols):
             if j:
