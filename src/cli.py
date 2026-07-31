@@ -9,6 +9,7 @@ Phase 2:
     python -m src.cli refs          --symbol BTCUSDT --start ... --end ...
     python -m src.cli events        --symbol BTCUSDT --start ... --end ...
     python -m src.cli analyze       --symbol BTCUSDT            # §4.1〜4.5
+    python -m src.cli latency       --symbol BTCUSDT            # 手動執行の 0〜20 秒遅延
     python -m src.cli validate      --symbol BTCUSDT --start ... --end ...   # §6
 検証用:
     python -m src.cli synth         --symbol SYNTH --start ... --end ... --profile strong|null|realistic
@@ -30,7 +31,7 @@ import polars as pl
 from . import exits as exits_mod
 from . import outcomes as out_mod
 from . import pipeline as pipe
-from .analysis import heatmap, stop_fill, validation, viability
+from .analysis import heatmap, latency, stop_fill, validation, viability
 from .config import load_params, load_symbols, resolve_dir
 from .data import download as dl
 from .data import synthetic, to_seconds, verify_flags
@@ -200,6 +201,25 @@ def cmd_analyze(args, params) -> None:
     print(f"reports written to {out}")
 
 
+def cmd_latency(args, params) -> None:
+    """Measure the 7s-vs-20s manual execution problem without tuning signals."""
+    symbol = args.symbol
+    ledger = pl.read_parquet(pipe.ledger_path(params, symbol))
+    if ledger.height == 0:
+        raise SystemExit("event ledger is empty")
+    delays = [int(v) for v in params.get_path("latency.reaction_delay_seconds")]
+    horizon = int(params.get_path("latency.diagnostic_horizon_seconds"))
+    start_ts = int(ledger["event_ts"].min())
+    end_ts = int(ledger["event_ts"].max()) + max(delays) + horizon + 1
+    seconds = to_seconds.load_seconds(params, symbol, start_ts, end_ts)
+    rows = latency.simulate(ledger, seconds, params)
+    summary = latency.summarize(rows)
+    out = _report_dir(params, symbol)
+    rows.write_parquet(out / "latency_events.parquet")
+    summary.write_csv(out / "latency_summary.csv")
+    print(summary)
+
+
 def cmd_validate(args, params) -> None:
     symbol = args.symbol
     out = _report_dir(params, symbol)
@@ -324,6 +344,7 @@ def main(argv=None) -> None:
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")
     p.set_defaults(fn=cmd_analyze)
+    p = sub.add_parser("latency"); add_common(p, False); p.set_defaults(fn=cmd_latency)
     p = sub.add_parser("validate"); add_common(p); p.set_defaults(fn=cmd_validate)
     p = sub.add_parser("synth"); add_common(p)
     p.add_argument("--profile", default="realistic", choices=sorted(synthetic.PROFILES))

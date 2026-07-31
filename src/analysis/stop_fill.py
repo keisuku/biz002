@@ -14,13 +14,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from functools import lru_cache
-from pathlib import Path
 
 import numpy as np
 import polars as pl
 
-from ..config import Params, resolve_dir
+from ..config import Params
+from ..data.download import raw_path
 
 
 class TickStopFill:
@@ -33,10 +32,10 @@ class TickStopFill:
         self._cache: dict[tuple[str, str], pl.DataFrame | None] = {}
 
     def _day_frame(self, symbol: str, ts: int) -> pl.DataFrame | None:
-        day = datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat()
-        key = (symbol, day)
+        day = datetime.fromtimestamp(ts, tz=timezone.utc).date()
+        key = (symbol, day.isoformat())
         if key not in self._cache:
-            p = resolve_dir(self.params, "raw_dir") / self.dataset_dir / symbol / f"{day}.parquet"
+            p = raw_path(self.params, self.dataset_dir, symbol, day)
             self._cache[key] = pl.read_parquet(p) if p.exists() else None
             if len(self._cache) > 4:  # メモリ節約: 直近数日のみ保持
                 for k in list(self._cache)[:-4]:

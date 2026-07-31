@@ -1,8 +1,12 @@
-data/
+/data/
 __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+.uv-cache/
 *.zip
 *.CHECKSUM
 reports/**/*.parquet
+/reports/BTCUSDT/
+/reports/ETHUSDT/
+/reports/data_layout.json
