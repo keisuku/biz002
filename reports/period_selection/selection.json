@@ -1,0 +1,190 @@
+{
+  "source_period": [
+    "2023-08-01",
+    "2026-07-29"
+  ],
+  "range_definition": "(high-low)/close",
+  "top_n": 8,
+  "control_seed": 20260731,
+  "daily_rows": 1094,
+  "archives": 64,
+  "checksums_verified": 64,
+  "window_slots": 48,
+  "unique_dates": 46,
+  "contiguous_ranges": [
+    [
+      "2023-08-16",
+      "2023-08-18"
+    ],
+    [
+      "2023-08-26",
+      "2023-08-28"
+    ],
+    [
+      "2023-08-30",
+      "2023-09-01"
+    ],
+    [
+      "2023-10-22",
+      "2023-10-24"
+    ],
+    [
+      "2023-10-27",
+      "2023-10-29"
+    ],
+    [
+      "2024-03-04",
+      "2024-03-06"
+    ],
+    [
+      "2024-06-20",
+      "2024-06-22"
+    ],
+    [
+      "2024-07-14",
+      "2024-07-16"
+    ],
+    [
+      "2024-08-04",
+      "2024-08-06"
+    ],
+    [
+      "2024-12-04",
+      "2024-12-06"
+    ],
+    [
+      "2025-06-30",
+      "2025-07-02"
+    ],
+    [
+      "2025-10-09",
+      "2025-10-11"
+    ],
+    [
+      "2026-02-04",
+      "2026-02-07"
+    ],
+    [
+      "2026-03-24",
+      "2026-03-26"
+    ],
+    [
+      "2026-06-10",
+      "2026-06-12"
+    ]
+  ],
+  "anchors": [
+    {
+      "group": "extreme",
+      "date": "2025-10-10",
+      "range_rate": 0.18613776883091765,
+      "rank": 1,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2023-10-23",
+      "range_rate": 0.18481284392574227,
+      "rank": 2,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2026-02-05",
+      "range_rate": 0.17628972404128646,
+      "rank": 3,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2024-08-05",
+      "range_rate": 0.17404371230540472,
+      "rank": 4,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2026-02-06",
+      "range_rate": 0.1688919759867884,
+      "rank": 5,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2024-03-05",
+      "range_rate": 0.1606026284993584,
+      "rank": 6,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2023-08-17",
+      "range_rate": 0.15764552024261835,
+      "rank": 7,
+      "draw_order": null
+    },
+    {
+      "group": "extreme",
+      "date": "2024-12-05",
+      "range_rate": 0.14876470982407483,
+      "rank": 8,
+      "draw_order": null
+    },
+    {
+      "group": "control",
+      "date": "2024-06-21",
+      "range_rate": 0.026422244401472193,
+      "rank": null,
+      "draw_order": 1
+    },
+    {
+      "group": "control",
+      "date": "2023-10-28",
+      "range_rate": 0.019608878562250312,
+      "rank": null,
+      "draw_order": 2
+    },
+    {
+      "group": "control",
+      "date": "2023-08-31",
+      "range_rate": 0.07931579759333539,
+      "rank": null,
+      "draw_order": 3
+    },
+    {
+      "group": "control",
+      "date": "2023-08-27",
+      "range_rate": 0.008356428508454175,
+      "rank": null,
+      "draw_order": 4
+    },
+    {
+      "group": "control",
+      "date": "2025-07-01",
+      "range_rate": 0.02193625583242367,
+      "rank": null,
+      "draw_order": 5
+    },
+    {
+      "group": "control",
+      "date": "2026-03-25",
+      "range_rate": 0.022790420421473324,
+      "rank": null,
+      "draw_order": 6
+    },
+    {
+      "group": "control",
+      "date": "2024-07-15",
+      "range_rate": 0.06567811677690062,
+      "rank": null,
+      "draw_order": 7
+    },
+    {
+      "group": "control",
+      "date": "2026-06-11",
+      "range_rate": 0.038235539223779466,
+      "rank": null,
+      "draw_order": 8
+    }
+  ]
+}
