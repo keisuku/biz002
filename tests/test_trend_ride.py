@@ -86,6 +86,32 @@ def test_entry_is_taken_at_the_configured_age(params):
     assert r.row(0, named=True)["entry_price"] == pytest.approx(close[100 + age])
 
 
+def test_long_real_frame_can_transition_from_null_to_finite_context(params):
+    """先頭100件超がNullでも、後続のtrend_z実数で型推論が停止しない。"""
+    n = 5000
+    bars = _bars(n, np.full(n, 100.0))
+    indices = list(range(100, 230))
+    starts = pl.DataFrame({
+        "ts": [int(bars["ts"][i]) for i in indices],
+        "direction": pl.Series([1] * len(indices), dtype=pl.Int8),
+        "impulse_bps": [100.0] * len(indices),
+        "symbol": ["T"] * len(indices),
+    })
+    context = bars.select("ts").with_columns(
+        pl.when(pl.int_range(0, n) < 220)
+        .then(pl.lit(None, dtype=pl.Float64))
+        .otherwise(pl.lit(0.5))
+        .alias("trend_z"),
+        pl.lit(None, dtype=pl.Float64).alias("vol_z"),
+    )
+    result = ride.simulate_rides(
+        starts, bars, params, max_hold=900, context=context
+    )
+    assert result.height == len(indices)
+    assert result["trend_z"].dtype == pl.Float64
+    assert result["trend_z"].drop_nulls().len() > 0
+
+
 def test_mean_r_positive_while_median_is_negative(params):
     """中央値がマイナスでも平均 R がプラスなら成立する、という非対称性。
 
@@ -150,3 +176,28 @@ def test_stratify_splits_with_and_counter_trend(params):
     counter = s.filter(pl.col("stratum") == "align:counter_trend").row(0, named=True)
     assert with_trend["mean_r"] == pytest.approx(2.5)
     assert counter["mean_r"] == pytest.approx(-1.0)
+
+
+def test_stratify_does_not_pool_signal_definitions(params):
+    rides = pl.DataFrame({
+        "window_s": [3, 3, 10, 10],
+        "sigma_mult": [4.0, 4.0, 6.0, 6.0],
+        "max_hold_s": [3600] * 4,
+        "r_multiple": [2.0, 2.0, -1.0, -1.0],
+        "mfe_r": [2.0, 2.0, 0.1, 0.1],
+        "cost_r": [0.02] * 4,
+        "hold_seconds": [3600] * 4,
+        "exit_reason": ["max_hold"] * 4,
+        "direction": pl.Series([1, 1, 1, 1], dtype=pl.Int8),
+        "trend_z": [1.0] * 4,
+        "vol_z": [0.0] * 4,
+        "trend_align": [True] * 4,
+    })
+    strata = ride.stratify(rides, params)
+    aligned = strata.filter(pl.col("stratum") == "align:with_trend")
+    assert aligned.height == 2
+    by_window = {
+        int(row["window_s"]): row for row in aligned.iter_rows(named=True)
+    }
+    assert by_window[3]["mean_r"] == pytest.approx(2.0)
+    assert by_window[10]["mean_r"] == pytest.approx(-1.0)

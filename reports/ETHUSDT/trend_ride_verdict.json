@@ -1,0 +1,70 @@
+{
+  "verdict": "NEGATIVE_EXPECTANCY",
+  "note": "R 倍率の平均が負。この定義・この期間では成立していない。",
+  "best_max_hold_s": 86400,
+  "n": 942,
+  "win_rate": 0.06475583864118896,
+  "mean_r": -0.7825460039440031,
+  "median_r": -2.3342144547713675,
+  "total_r": -737.1583357152509,
+  "profit_factor": 0.711218991055271,
+  "max_r": 93.62917167786276,
+  "mean_cost_r": 1.7749930621119137,
+  "enough_wins": true,
+  "min_wins": 30,
+  "best_window_s": 10,
+  "best_sigma_mult": 6.0,
+  "period_selection": "reports/period_selection/selection.json",
+  "window_slots": 48,
+  "unique_days": 46,
+  "incomplete_right_censored_rides_excluded": 1135,
+  "by_selection_group": {
+    "control": {
+      "verdict": "NEGATIVE_EXPECTANCY",
+      "note": "R 倍率の平均が負。この定義・この期間では成立していない。",
+      "best_max_hold_s": 900,
+      "n": 1997,
+      "win_rate": 0.1887831747621432,
+      "mean_r": -1.2651838934083215,
+      "median_r": -1.8112477061124301,
+      "total_r": -2526.572235136418,
+      "profit_factor": 0.211933617179148,
+      "max_r": 12.948296023387101,
+      "mean_cost_r": 1.4463543548082498,
+      "enough_wins": true,
+      "min_wins": 30,
+      "best_window_s": 10,
+      "best_sigma_mult": 4.0,
+      "segment_robustness": {
+        "n_segments": 8,
+        "positive_segments": 0,
+        "loo_min_mean_r": -1.304594804150925,
+        "loo_max_mean_r": -1.241177591378042
+      }
+    },
+    "extreme": {
+      "verdict": "POSITIVE_EXPECTANCY",
+      "note": "R 倍率の平均が正。ただしサンプル数と局面の偏りを必ず確認すること。",
+      "best_max_hold_s": 86400,
+      "n": 1641,
+      "win_rate": 0.0603290676416819,
+      "mean_r": 0.03579421148253232,
+      "median_r": -2.3865086234510247,
+      "total_r": 58.73830104283553,
+      "profit_factor": 1.012921797785141,
+      "max_r": 186.8737147257229,
+      "mean_cost_r": 1.819823128778974,
+      "enough_wins": true,
+      "min_wins": 30,
+      "best_window_s": 10,
+      "best_sigma_mult": 4.0,
+      "segment_robustness": {
+        "n_segments": 7,
+        "positive_segments": 3,
+        "loo_min_mean_r": -0.7457351297077927,
+        "loo_max_mean_r": 0.46026823748127343
+      }
+    }
+  },
+  "warning": "window_s / sigma_mult are pre-registered alternatives and are reported separately. The best row is exploratory, not a post-selection deployment parameter."
+}

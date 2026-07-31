@@ -1,0 +1,10 @@
+{
+  "symbol": "ETHUSDT",
+  "overwrite": true,
+  "days": 46,
+  "days_ok": 46,
+  "days_missing_raw": 0,
+  "missing_dates": [],
+  "days_with_long_gaps": 0,
+  "total_gap_seconds": 0
+}

@@ -7,6 +7,4 @@ __pycache__/
 *.zip
 *.CHECKSUM
 reports/**/*.parquet
-/reports/BTCUSDT/
-/reports/ETHUSDT/
 /reports/data_layout.json

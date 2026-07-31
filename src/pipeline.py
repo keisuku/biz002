@@ -84,6 +84,35 @@ def _chunks(days: list[date], chunk_days: int) -> list[tuple[date, date]]:
             for i in range(0, len(days), chunk_days)]
 
 
+def _contiguous_core_slice(
+    seconds: pl.DataFrame, core_start_ts: int, core_end_ts: int
+) -> pl.DataFrame:
+    """Keep only the contiguous span containing the requested core interval.
+
+    A sparse research download can contain another selected segment just inside
+    the requested warmup/forward range, separated by an undownloaded day.
+    Rolling across that gap would be invalid.  Gaps inside the core remain a
+    hard error; gaps outside it bound the usable context.
+    """
+    if seconds.height == 0:
+        return seconds
+    ts = seconds["ts"].to_numpy()
+    core_left = int(np.searchsorted(ts, core_start_ts, side="left"))
+    core_right = int(np.searchsorted(ts, core_end_ts, side="left")) - 1
+    if core_left >= len(ts) or core_right < core_left:
+        return seconds.head(0)
+    if ts[core_left] != core_start_ts or ts[core_right] != core_end_ts - 1:
+        raise ValueError("seconds frame does not fully cover the core interval")
+    gaps = np.flatnonzero(np.diff(ts) != 1)
+    if np.any((gaps >= core_left) & (gaps < core_right)):
+        raise ValueError("seconds frame has a gap inside the core interval")
+    left_gaps = gaps[gaps < core_left]
+    right_gaps = gaps[gaps >= core_right]
+    left = int(left_gaps[-1] + 1) if left_gaps.size else 0
+    right = int(right_gaps[0] + 1) if right_gaps.size else len(ts)
+    return seconds.slice(left, right - left)
+
+
 def build_events(params: Params, symbol: str, days: list[date],
                  minute_rv: pl.DataFrame | None = None,
                  with_exits: bool = True,
@@ -107,6 +136,7 @@ def build_events(params: Params, symbol: str, days: list[date],
     for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
         t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
         sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        sec = _contiguous_core_slice(sec, t0, t1)
         if sec.height == 0:
             continue
         core = feat.compute_core_features(sec, params)
@@ -187,6 +217,7 @@ def build_impulse_scan(params: Params, symbol: str, days: list[date]) -> pl.Data
     for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
         t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
         sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        sec = _contiguous_core_slice(sec, t0, t1)
         if sec.height == 0:
             continue
         core = feat.compute_core_features(sec, params)
@@ -243,6 +274,7 @@ def build_trend_rides(params: Params, symbol: str, days: list[date],
     for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
         t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
         sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        sec = _contiguous_core_slice(sec, t0, t1)
         if sec.height == 0:
             continue
         core = feat.compute_core_features(sec, params)

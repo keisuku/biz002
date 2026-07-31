@@ -1,0 +1,9 @@
+{
+  "verdict": "PASS",
+  "n": 3885149,
+  "correlation": 0.09170899619913035,
+  "tail_alignment": 0.9310717594975806,
+  "interpretation": "is_buyer_maker=False means taker buy",
+  "symbol": "BTCUSDT",
+  "days": 46
+}
