@@ -143,6 +143,35 @@ def build_events(params: Params, symbol: str, days: list[date],
     return ledger.sort("event_ts"), sim
 
 
+def build_funnel(params: Params, symbol: str, days: list[date],
+                 minute_rv: pl.DataFrame | None = None) -> dict:
+    """発火条件のファネル診断（§3.3 のどの条件が律速かを見る）。件数は変えない。"""
+    from .analysis import funnel as funnel_mod
+
+    if minute_rv is None:
+        minute_rv = load_refs(params, symbol)
+    calm_window = int(params.get_path("thresholds.calm_window"))
+    pct = float(params.get_path("thresholds.calm_percentile"))
+    ref_days = int(params.get_path("features.calm_ref_days"))
+    sample = int(params.get_path("features.calm_ref_sample_seconds"))
+    calm_excl = int(params.get_path("features.calm_exclude_seconds"))
+    warm = int(params.get_path("validation.warmup_seconds"))
+    thresholds = feat.calm_threshold_series(minute_rv, calm_window, pct, ref_days, sample)
+
+    chunks = []
+    for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
+        t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
+        sec = load_seconds(params, symbol, t0 - warm, t1)
+        if sec.height == 0:
+            continue
+        core = feat.compute_core_features(sec, params)
+        feats = feat.add_calm_columns(core, thresholds, calm_window, calm_excl)
+        feats = feats.filter((pl.col("ts") >= t0) & (pl.col("ts") < t1))
+        if feats.height:
+            chunks.append(funnel_mod.count_chunk(feats, params))
+    return funnel_mod.merge_chunks(chunks)
+
+
 def simulate_exits_for_ledger(params: Params, symbol: str, ledger: pl.DataFrame,
                               fixed_horizon: int,
                               stop_fill: exits_mod.StopFillEstimator | None = None,

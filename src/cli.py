@@ -8,6 +8,7 @@ Phase 1:
 Phase 2:
     python -m src.cli refs          --symbol BTCUSDT --start ... --end ...
     python -m src.cli events        --symbol BTCUSDT --start ... --end ...
+    python -m src.cli funnel        --symbol BTCUSDT --start ... --end ...   # 発火条件の律速診断
     python -m src.cli analyze       --symbol BTCUSDT            # §4.1〜4.5
     python -m src.cli latency       --symbol BTCUSDT            # 手動執行の 0〜20 秒遅延
     python -m src.cli validate      --symbol BTCUSDT --start ... --end ...   # §6
@@ -144,6 +145,33 @@ def cmd_events(args, params) -> None:
     }
     (out / "events_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(json.dumps(summary, indent=2))
+
+
+def cmd_funnel(args, params) -> None:
+    """発火条件のどれが律速かを見る診断。閾値は一切変更しない（§9 の試行回数に数えない）。"""
+    from .analysis import funnel as funnel_mod
+
+    symbol = args.symbol
+    merged = pipe.build_funnel(params, symbol, _days(params, args))
+    table = funnel_mod.funnel_table(merged, params)
+    dist = funnel_mod.ratio_distribution(merged, params)
+    out = _report_dir(params, symbol)
+    table.write_csv(out / "funnel.csv")
+    dist.write_csv(out / "funnel_ratio_distribution.csv")
+    summary = {
+        "symbol": symbol,
+        "seconds_evaluated": merged["n_data_ok"],
+        "seconds_calm": merged["n_calm_ok"],
+        "seconds_passing_all_conditions": merged["n_all"],
+        "thresholds": dict(params["thresholds"]),
+    }
+    (out / "funnel_summary.json").write_text(
+        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(json.dumps(summary, indent=2, ensure_ascii=False))
+    print("\n[条件別] binding_factor が大きいほど、その条件が件数を絞っている")
+    print(table)
+    print("\n[凪の秒における比率分布] threshold_percentile が 100 に近いほど厳しい閾値")
+    print(dist)
 
 
 def cmd_analyze(args, params) -> None:
@@ -340,6 +368,7 @@ def main(argv=None) -> None:
     p = sub.add_parser("verify-flags"); add_common(p); p.set_defaults(fn=cmd_verify_flags)
     p = sub.add_parser("refs"); add_common(p); p.set_defaults(fn=cmd_refs)
     p = sub.add_parser("events"); add_common(p); p.set_defaults(fn=cmd_events)
+    p = sub.add_parser("funnel"); add_common(p); p.set_defaults(fn=cmd_funnel)
     p = sub.add_parser("analyze"); add_common(p)
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")

@@ -1,0 +1,14 @@
+{
+  "symbol": "SYNTHSTRONG",
+  "seconds_evaluated": 1726201,
+  "seconds_calm": 412159,
+  "seconds_passing_all_conditions": 447,
+  "thresholds": {
+    "sigma": 4.0,
+    "tick": 10.0,
+    "ofi": 0.6,
+    "impact": 3.0,
+    "calm_window": 1800,
+    "calm_percentile": 25
+  }
+}
