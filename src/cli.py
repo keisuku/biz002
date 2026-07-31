@@ -10,6 +10,7 @@ Phase 2:
     python -m src.cli events        --symbol BTCUSDT --start ... --end ...
     python -m src.cli funnel        --symbol BTCUSDT --start ... --end ...   # 発火条件の律速診断
     python -m src.cli impulse-scan  --symbol BTCUSDT --start ... --end ...   # 初動エントリの天井（上限値）
+    python -m src.cli ride          --symbol BTCUSDT --start ... --end ...   # 乗って放置する手法を R 倍率で測る
     python -m src.cli analyze       --symbol BTCUSDT            # §4.1〜4.5
     python -m src.cli latency       --symbol BTCUSDT            # 手動執行の 0〜20 秒遅延
     python -m src.cli validate      --symbol BTCUSDT --start ... --end ...   # §6
@@ -211,6 +212,43 @@ def cmd_impulse_scan(args, params) -> None:
         print(compact)
 
 
+def cmd_ride(args, params) -> None:
+    """特大の動きに乗ってストップを置き放置する手法を、R 倍率で測る。
+
+    指示書のスキャル前提（60 秒・MFE 中央値・凪条件）とは別の手法として扱う。
+    """
+    from .analysis import trend_ride as ride
+
+    symbol = args.symbol
+    rides = pipe.build_trend_rides(params, symbol, _days(params, args))
+    out = _report_dir(params, symbol)
+    if rides.height == 0:
+        print("初動が 1 件もラベルされなかった。期間かデータを確認すること。")
+        return
+    by = ["window_s", "sigma_mult", "max_hold_s"]
+    summary = ride.summarize(rides, params, by=by)
+    strata = ride.stratify(rides, params)
+    v = ride.verdict(summary, params)
+
+    rides.write_parquet(out / "trend_rides.parquet")
+    summary.write_csv(out / "trend_ride_summary.csv")
+    strata.write_csv(out / "trend_ride_strata.csv")
+    (out / "trend_ride_verdict.json").write_text(
+        json.dumps(v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+
+    print("R 倍率 = 損切り幅 1 個ぶん。負け -1R、勝ちは伸びたぶん。")
+    print("**中央値ではなく平均 R と右の裾（+3R 以上の割合）を見ること。**")
+    print(json.dumps(v, indent=2, ensure_ascii=False, default=str))
+    cols = ["window_s", "sigma_mult", "max_hold_s", "n", "win_rate", "mean_r",
+            "median_r", "total_r", "profit_factor", "p_ge_3r", "max_r", "stop_rate"]
+    with pl.Config(tbl_rows=60, tbl_cols=15):
+        print(summary.select([c for c in cols if c in summary.columns]))
+        print("\n[層別] 順張り/逆張り・ボラ局面・売買方向")
+        scols = ["stratum", "max_hold_s", "n", "win_rate", "mean_r", "total_r",
+                 "profit_factor", "p_ge_3r"]
+        print(strata.select([c for c in scols if c in strata.columns]))
+
+
 def cmd_analyze(args, params) -> None:
     symbol = args.symbol
     out = _report_dir(params, symbol)
@@ -407,6 +445,7 @@ def main(argv=None) -> None:
     p = sub.add_parser("events"); add_common(p); p.set_defaults(fn=cmd_events)
     p = sub.add_parser("funnel"); add_common(p); p.set_defaults(fn=cmd_funnel)
     p = sub.add_parser("impulse-scan"); add_common(p); p.set_defaults(fn=cmd_impulse_scan)
+    p = sub.add_parser("ride"); add_common(p); p.set_defaults(fn=cmd_ride)
     p = sub.add_parser("analyze"); add_common(p)
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")

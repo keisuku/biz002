@@ -147,3 +147,21 @@ impulse_scan:
   entry_ages: [0, 1, 2, 3, 5, 7, 10, 15, 20, 30]
   horizons: [15, 30, 60, 120]
   cooldown_seconds: 60
+
+# 「特大の動きに乗って、ストップを置いて放置する」手法の測定。
+# 指示書のスキャル前提（60秒・MFE中央値・凪条件）とは別物として扱う:
+#   - 凪条件は使わない（暴落期＝荒れている局面で効く手法のため）
+#   - 保有は損切りに掛かるまで。分〜時間単位
+#   - 集計は R 倍率（損切り幅=1R）。中央値ではなく平均と右の裾を見る
+trend_ride:
+  entry_age_seconds: 3             # 初動を認識してから乗るまで（体感値）
+  stop_k: 1.0                      # 損切り幅 = stop_k × 初動の値幅
+  min_stop_bps: 10.0               # 初動が小さすぎる場合の下限
+  max_hold_seconds: [900, 3600, 14400, 86400]
+  r_thresholds: [1, 2, 3, 5, 10]
+  # 直前トレンドとの関係（裁量の「そろそろ調整が来る」を測定可能にしたもの）
+  trend_lookback_seconds: 3600
+  trend_ref_seconds: 86400
+  vol_regime_ref_days: 7
+  warmup_seconds: 90000            # トレンド参照 24h + 1h + 余裕
+  trend_z_buckets: [-2.0, -0.5, 0.5, 2.0]
