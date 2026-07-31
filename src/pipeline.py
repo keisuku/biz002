@@ -242,7 +242,8 @@ def build_impulse_scan(params: Params, symbol: str, days: list[date]) -> pl.Data
 
 
 def build_trend_rides(params: Params, symbol: str, days: list[date],
-                      minute_rv: pl.DataFrame | None = None) -> pl.DataFrame:
+                      minute_rv: pl.DataFrame | None = None,
+                      benchmark: bool = False) -> pl.DataFrame:
     """「特大の動きに乗ってストップを置いて放置」の全トレードを返す。
 
     凪条件は使わない。初動のラベルは impulse.label_impulse_starts（値動きだけで決まる）。
@@ -298,11 +299,23 @@ def build_trend_rides(params: Params, symbol: str, days: list[date],
                 if starts.height == 0:
                     continue
                 starts = starts.with_columns(pl.lit(symbol).alias("symbol"))
-                for hold in holds:
-                    r = ride.simulate_rides(starts, sec, params, hold, costs, ctx)
-                    if r.height:
-                        frames.append(r.with_columns(pl.lit(int(w)).alias("window_s"),
-                                                     pl.lit(float(mult)).alias("sigma_mult")))
+                groups = [("signal", starts)]
+                if benchmark:
+                    # 対照群: 同じ期間・同じ方向分布・同じストップ幅で、時刻だけランダム。
+                    # 局面そのものの効果を差し引くために必要（§ trend_ride.random_entries）。
+                    groups.append(("random", ride.random_entries(
+                        sec, starts, seed=int(cfg["benchmark_seed"]) + int(w),
+                        multiplier=int(cfg["benchmark_multiplier"]), region=(t0, t1))))
+                for source, ev in groups:
+                    if ev.height == 0:
+                        continue
+                    for hold in holds:
+                        r = ride.simulate_rides(ev, sec, params, hold, costs, ctx)
+                        if r.height:
+                            frames.append(r.with_columns(
+                                pl.lit(int(w)).alias("window_s"),
+                                pl.lit(float(mult)).alias("sigma_mult"),
+                                pl.lit(source).alias("source")))
     return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
 
 

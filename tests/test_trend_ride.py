@@ -201,3 +201,84 @@ def test_stratify_does_not_pool_signal_definitions(params):
     }
     assert by_window[3]["mean_r"] == pytest.approx(2.0)
     assert by_window[10]["mean_r"] == pytest.approx(-1.0)
+
+
+def test_random_entries_match_direction_and_stop_distribution(params):
+    """対照群は「いつ入るか」だけが違い、方向とストップ幅の分布は同じであること。"""
+    n = 5000
+    bars = _bars(n, np.full(n, 100.0))
+    template = pl.DataFrame({
+        "ts": bars["ts"].to_numpy()[[100, 200, 300]],
+        "direction": pl.Series([1, -1, -1], dtype=pl.Int8),
+        "impulse_bps": [50.0, 80.0, 120.0],
+        "symbol": ["T"] * 3,
+    })
+    r = ride.random_entries(bars, template, seed=1, multiplier=10)
+    assert r.height == 30
+    assert set(r["direction"].to_list()) <= {1, -1}
+    assert set(r["impulse_bps"].to_list()) <= {50.0, 80.0, 120.0}
+    # 時刻はテンプレートの 3 点に限定されず、広く散らばること
+    assert r["ts"].n_unique() > 3
+    assert r["ts"].is_sorted()
+
+
+def test_random_entries_are_deterministic_for_a_seed(params):
+    n = 3000
+    bars = _bars(n, np.full(n, 100.0))
+    t = pl.DataFrame({"ts": bars["ts"].to_numpy()[[10]],
+                      "direction": pl.Series([1], dtype=pl.Int8),
+                      "impulse_bps": [30.0], "symbol": ["T"]})
+    a = ride.random_entries(bars, t, seed=7, multiplier=20)
+    b = ride.random_entries(bars, t, seed=7, multiplier=20)
+    assert a["ts"].to_list() == b["ts"].to_list()
+
+
+def test_random_entries_stay_inside_the_requested_region(params):
+    n = 3000
+    bars = _bars(n, np.full(n, 100.0))
+    t = pl.DataFrame({"ts": bars["ts"].to_numpy()[[10]],
+                      "direction": pl.Series([1], dtype=pl.Int8),
+                      "impulse_bps": [30.0], "symbol": ["T"]})
+    lo = int(bars["ts"][1000])
+    hi = int(bars["ts"][2000])
+    r = ride.random_entries(bars, t, seed=3, multiplier=50, region=(lo, hi))
+    assert r["ts"].min() >= lo and r["ts"].max() < hi
+
+
+def test_robustness_flags_a_result_carried_by_one_block():
+    """1 ブロックだけが利益を作っている場合、それを検出すること。"""
+    block = 259_200
+    rides = pl.DataFrame({
+        "impulse_ts": [0, 100, block, block + 100, 2 * block, 2 * block + 100],
+        "r_multiple": [-1.0, -1.0, 20.0, 20.0, -1.0, -1.0],
+    })
+    rob = ride.robustness(rides, block)
+    v = ride.robustness_verdict(rob)
+    assert v["verdict"] == "DEPENDS_ON_ONE_BLOCK"
+    assert v["mean_r_all"] > 0
+    assert v["mean_r_without_top_block"] < 0
+
+
+def test_robustness_passes_when_gains_are_spread_out():
+    block = 259_200
+    rides = pl.DataFrame({
+        "impulse_ts": [0, block, 2 * block, 3 * block],
+        "r_multiple": [3.0, 3.0, 3.0, 3.0],
+    })
+    v = ride.robustness_verdict(ride.robustness(rides, block))
+    assert v["verdict"] == "SURVIVES_LEAVE_ONE_OUT"
+    assert v["mean_r_without_top_block"] > 0
+
+
+def test_signal_vs_random_separates_the_two_groups(params):
+    rides = pl.DataFrame({
+        "max_hold_s": [3600] * 4,
+        "source": ["signal", "signal", "random", "random"],
+        "r_multiple": [4.0, 2.0, -1.0, 0.0],
+        "mfe_r": [4.0, 2.0, 0.1, 0.2], "cost_r": [0.02] * 4,
+        "hold_seconds": [10] * 4, "exit_reason": ["max_hold"] * 4,
+    })
+    t = ride.signal_vs_random(rides, params)
+    by_source = {r["source"]: r for r in t.iter_rows(named=True)}
+    assert by_source["signal"]["mean_r"] == pytest.approx(3.0)
+    assert by_source["random"]["mean_r"] == pytest.approx(-0.5)

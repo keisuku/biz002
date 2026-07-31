@@ -1,0 +1,8 @@
+{
+  "verdict": "DEPENDS_ON_ONE_BLOCK",
+  "note": "**最大寄与ブロックを抜くと平均 R が正でなくなる。**実効サンプル数がほぼ 1 であり、偶然と区別できない。",
+  "mean_r_all": -1.5686696416311,
+  "mean_r_without_top_block": -1.5740724839266864,
+  "top_block_total_r": -330.6277038066704,
+  "n_blocks": 5
+}

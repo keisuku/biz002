@@ -161,6 +161,108 @@ def simulate_rides(events: pl.DataFrame, seconds: pl.DataFrame, params: Params,
     return pl.DataFrame(rows, infer_schema_length=None)
 
 
+def random_entries(seconds: pl.DataFrame, template: pl.DataFrame, seed: int,
+                   multiplier: int, region: tuple[int, int] | None = None) -> pl.DataFrame:
+    """**対照群**: 同じ期間・同じ方向分布・同じストップ幅分布で、時刻だけランダムに置く。
+
+    これが必要な理由:
+
+    荒れた日（=多くは暴落日）を選んで、その中でショートを取れば、初動の検出に
+    何の価値が無くてもプラスになる。単に下げ相場でショートを持っていただけだからだ。
+    **「シグナルに価値がある」と言うためには、同じ局面のランダムな時刻に対して
+    勝っていなければならない。** 局面そのものの効果を差し引くのがこの対照群。
+
+    方向とストップ幅は実シグナルから復元抽出するので、両者の違いは
+    **「いつ入るか」だけ**になる。
+    """
+    if template.height == 0 or seconds.height == 0:
+        return _empty_starts_like(template)
+    ts = seconds["ts"].to_numpy()
+    ok = ~seconds["is_filled"].to_numpy() if "is_filled" in seconds.columns else np.ones(len(ts), bool)
+    lo, hi = (region if region is not None else (int(ts[0]), int(ts[-1]) + 1))
+    usable = ts[ok & (ts >= lo) & (ts < hi)]
+    if usable.size == 0:
+        return _empty_starts_like(template)
+
+    rng = np.random.default_rng(seed)
+    n = template.height * max(int(multiplier), 1)
+    picks = rng.choice(usable, size=n, replace=True)
+    idx = rng.integers(0, template.height, size=n)
+    return pl.DataFrame({
+        "ts": np.sort(picks),
+        "direction": template["direction"].to_numpy()[idx].astype(np.int8),
+        "impulse_bps": template["impulse_bps"].to_numpy()[idx],
+        "symbol": [template["symbol"][0] if "symbol" in template.columns else "?"] * n,
+    })
+
+
+def _empty_starts_like(template: pl.DataFrame) -> pl.DataFrame:
+    return pl.DataFrame(schema={"ts": pl.Int64, "direction": pl.Int8,
+                                "impulse_bps": pl.Float64, "symbol": pl.String})
+
+
+def robustness(rides: pl.DataFrame, block_seconds: int = 259_200) -> pl.DataFrame:
+    """1 つの窓（既定 3 日）を取り除いたときに平均 R がどうなるか。
+
+    「最も寄与した窓を 1 つ抜くと平均がゼロ以下になる」なら、実効サンプル数は
+    ほぼ 1 であり、統計的な根拠にならない。今回それが起きたので常設の指標にする。
+    """
+    if rides.height == 0:
+        return pl.DataFrame(schema={"n_blocks": pl.Int64})
+    r = rides.with_columns((pl.col("impulse_ts") // block_seconds).alias("_block"))
+    total = float(r["r_multiple"].sum())
+    n = r.height
+    rows = []
+    for blk, sub in r.group_by("_block"):
+        k = sub.height
+        if n - k <= 0:
+            continue
+        rows.append({
+            "block": int(blk[0] if isinstance(blk, tuple) else blk),
+            "n_in_block": k,
+            "block_total_r": float(sub["r_multiple"].sum()),
+            "mean_r_without_block": (total - float(sub["r_multiple"].sum())) / (n - k),
+        })
+    if not rows:
+        return pl.DataFrame(schema={"n_blocks": pl.Int64})
+    out = pl.DataFrame(rows).sort("block_total_r", descending=True)
+    return out.with_columns(
+        pl.lit(total / n).alias("mean_r_all"),
+        pl.lit(out.height).alias("n_blocks"),
+    )
+
+
+def robustness_verdict(rob: pl.DataFrame) -> dict:
+    """最大寄与ブロックを抜いた後も平均 R が正かどうか。"""
+    if rob.height == 0:
+        return {"verdict": "NO_DATA"}
+    worst = rob.row(0, named=True)          # 寄与最大のブロックを抜いた行
+    survives = worst["mean_r_without_block"] > 0
+    return {
+        "verdict": "SURVIVES_LEAVE_ONE_OUT" if survives else "DEPENDS_ON_ONE_BLOCK",
+        "note": ("最大寄与ブロックを抜いても平均 R は正。"
+                 if survives else
+                 "**最大寄与ブロックを抜くと平均 R が正でなくなる。**"
+                 "実効サンプル数がほぼ 1 であり、偶然と区別できない。"),
+        "mean_r_all": worst["mean_r_all"],
+        "mean_r_without_top_block": worst["mean_r_without_block"],
+        "top_block_total_r": worst["block_total_r"],
+        "n_blocks": worst["n_blocks"],
+    }
+
+
+def signal_vs_random(rides: pl.DataFrame, params: Params,
+                     by: list[str] | None = None) -> pl.DataFrame:
+    """シグナル群と対照群（ランダム時刻）の比較表。
+
+    差が無ければ、勝っていたのは**局面**であってシグナルではない。
+    """
+    if rides.height == 0 or "source" not in rides.columns:
+        return pl.DataFrame(schema={"source": pl.String, "n": pl.UInt32})
+    group = (by or ["max_hold_s"]) + ["source"]
+    return summarize(rides, params, by=group)
+
+
 def summarize(rides: pl.DataFrame, params: Params,
               by: list[str] | None = None) -> pl.DataFrame:
     """R 倍率の集計。中央値ではなく平均・合計・右の裾を見る。"""

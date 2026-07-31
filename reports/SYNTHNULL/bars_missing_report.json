@@ -1,7 +1,7 @@
 {
   "symbol": "SYNTHNULL",
-  "days": 15,
-  "days_ok": 15,
+  "days": 12,
+  "days_ok": 12,
   "days_missing_raw": 0,
   "missing_dates": [],
   "days_with_long_gaps": 0,

@@ -11,6 +11,3 @@ date,status,rows,long_gaps,gap_seconds,path
 2025-01-10,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-10.parquet
 2025-01-11,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-11.parquet
 2025-01-12,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-12.parquet
-2025-01-13,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-13.parquet
-2025-01-14,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-14.parquet
-2025-01-15,ok,86400,0,0,/home/user/biz002/data/bars/SYNTHNULL/2025/01/SYNTHNULL-1s-2025-01-15.parquet

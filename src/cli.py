@@ -220,7 +220,8 @@ def cmd_ride(args, params) -> None:
     from .analysis import trend_ride as ride
 
     symbol = args.symbol
-    rides = pipe.build_trend_rides(params, symbol, _days(params, args))
+    rides = pipe.build_trend_rides(params, symbol, _days(params, args),
+                                   benchmark=not args.no_benchmark)
     out = _report_dir(params, symbol)
     if rides.height == 0:
         print("初動が 1 件もラベルされなかった。期間かデータを確認すること。")
@@ -235,6 +236,31 @@ def cmd_ride(args, params) -> None:
     strata.write_csv(out / "trend_ride_strata.csv")
     (out / "trend_ride_verdict.json").write_text(
         json.dumps(v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+
+    # --- 決定的な 2 つの検査 -------------------------------------------------------
+    sig = rides.filter(pl.col("source") == "signal") if "source" in rides.columns else rides
+    rob = ride.robustness(sig, int(params.get_path("trend_ride.robustness_block_seconds")))
+    rob_v = ride.robustness_verdict(rob)
+    rob.write_csv(out / "trend_ride_robustness.csv")
+    (out / "trend_ride_robustness.json").write_text(
+        json.dumps(rob_v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    if "source" in rides.columns:
+        cmp_tbl = ride.signal_vs_random(rides, params, by=by)
+        cmp_tbl.write_csv(out / "trend_ride_signal_vs_random.csv")
+        print("=" * 72)
+        print("【検査1】シグナル vs ランダム時刻（同じ局面・同じ方向・同じストップ幅）")
+        print("  差が無ければ、勝っていたのは局面であってシグナルではない。")
+        print("=" * 72)
+        with pl.Config(tbl_rows=60, tbl_cols=12):
+            print(cmp_tbl.select([c for c in ("window_s", "sigma_mult", "max_hold_s",
+                                              "source", "n", "win_rate", "mean_r",
+                                              "total_r", "p_ge_3r")
+                                  if c in cmp_tbl.columns]))
+    print("=" * 72)
+    print("【検査2】最大寄与ブロックを 1 つ抜いたときの平均 R")
+    print("  1 窓抜いてプラスが消えるなら、実効サンプル数はほぼ 1。")
+    print("=" * 72)
+    print(json.dumps(rob_v, indent=2, ensure_ascii=False, default=str))
 
     print("R 倍率 = 損切り幅 1 個ぶん。負け -1R、勝ちは伸びたぶん。")
     print("**中央値ではなく平均 R と右の裾（+3R 以上の割合）を見ること。**")
@@ -445,7 +471,10 @@ def main(argv=None) -> None:
     p = sub.add_parser("events"); add_common(p); p.set_defaults(fn=cmd_events)
     p = sub.add_parser("funnel"); add_common(p); p.set_defaults(fn=cmd_funnel)
     p = sub.add_parser("impulse-scan"); add_common(p); p.set_defaults(fn=cmd_impulse_scan)
-    p = sub.add_parser("ride"); add_common(p); p.set_defaults(fn=cmd_ride)
+    p = sub.add_parser("ride"); add_common(p)
+    p.add_argument("--no-benchmark", action="store_true",
+                   help="ランダム時刻の対照群を作らない（非推奨）")
+    p.set_defaults(fn=cmd_ride)
     p = sub.add_parser("analyze"); add_common(p)
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")
