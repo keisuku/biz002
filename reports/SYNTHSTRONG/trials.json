@@ -1,0 +1,13 @@
+{
+  "total_trials": 973,
+  "entries": [
+    {
+      "n": 972,
+      "note": "grid sweep SYNTHSTRONG 2025-01-01..2025-03-01"
+    },
+    {
+      "n": 1,
+      "note": "re-run for selected combo returns SYNTHSTRONG"
+    }
+  ]
+}

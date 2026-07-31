@@ -1,0 +1,156 @@
+{
+  "symbol": "SYNTHSTRONG",
+  "period": [
+    "2025-01-01",
+    "2025-03-01"
+  ],
+  "n_grid_combinations": 972,
+  "n_trials_total_logged": 973,
+  "selection_metric": "net_mean_pct",
+  "selected": {
+    "calm_window": 3600,
+    "calm_percentile": 15.0,
+    "sigma": 3.0,
+    "tick": 5.0,
+    "ofi": 0.4,
+    "impact": 3.0
+  },
+  "selected_stats": {
+    "n": 213,
+    "n_wins": 213,
+    "net_mean_pct": 1.869588191206959,
+    "win_rate": 1.0,
+    "t_stat": 73.15593203131216
+  },
+  "walk_forward_oos_mean": 1.7878994528861343,
+  "walk_forward_folds_positive": 8,
+  "sample_gate": {
+    "n_wins": 213,
+    "min_wins": 30,
+    "passed": true
+  },
+  "plateau": {
+    "n_neighbors": 8,
+    "n_ok": 8,
+    "fraction_ok": 1.0,
+    "required_fraction": 0.7,
+    "passed": true,
+    "best_metric": 1.869588191206959,
+    "details": [
+      {
+        "key": {
+          "calm_window": 1800,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 3.0
+        },
+        "metric": 1.8218033495866415,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 7200,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 3.0
+        },
+        "metric": 1.8080007102733389,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 25,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 3.0
+        },
+        "metric": 1.8198078480455862,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 15.0,
+          "sigma": 4.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 3.0
+        },
+        "metric": 1.8663355761182823,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 10.0,
+          "ofi": 0.4,
+          "impact": 3.0
+        },
+        "metric": 1.5498088429122643,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.6,
+          "impact": 3.0
+        },
+        "metric": 1.7079891339771882,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 2.0
+        },
+        "metric": 1.869588191206959,
+        "ok": true
+      },
+      {
+        "key": {
+          "calm_window": 3600,
+          "calm_percentile": 15.0,
+          "sigma": 3.0,
+          "tick": 5.0,
+          "ofi": 0.4,
+          "impact": 5.0
+        },
+        "metric": 1.869588191206959,
+        "ok": true
+      }
+    ]
+  },
+  "deflated_sharpe": {
+    "sharpe": 5.01256186847653,
+    "sr0": 3.29097856622308,
+    "dsr": 0.998892889907878,
+    "skew": 1.5568169401473355,
+    "kurtosis": 12.766847043992666,
+    "n_obs": 213,
+    "n_trials": 973
+  },
+  "block_bootstrap": {
+    "mean": 1.8695881912069585,
+    "lo": 1.8194520205418987,
+    "hi": 1.9260200937161847,
+    "p_le_zero": 0.0,
+    "n": 213,
+    "n_blocks": 59,
+    "n_resamples": 2000
+  }
+}

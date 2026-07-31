@@ -1,0 +1,131 @@
+# すべての閾値・窓幅はここに置く。コード内にマジックナンバーを書かないこと。
+# 単位: 秒 / 率(0-1) / bps(0.01%)
+
+data:
+  # data.binance.vision のルート。実際のパス構造は download.py が実行時に
+  # ディレクトリ一覧を取得して確認する（推測パスをハードコードしない）。
+  base_url: "https://data.binance.vision"
+  # S3 の ListBucket エンドポイント（ウェブ UI が内部で叩いているもの）
+  list_url: "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision"
+  market_root: "data/futures/um"
+  frequency: "daily"
+  raw_dir: "data/raw"
+  bars_dir: "data/bars"
+  refs_dir: "data/refs"
+  events_dir: "data/events"
+  reports_dir: "reports"
+  start_date: "2023-08-01"
+  end_date: "2026-07-29"
+  verify_checksum: true
+  keep_raw_parquet: true        # false にすると 1 秒バー生成後に生 tick を捨てる
+  max_download_workers: 4
+  request_timeout_seconds: 60
+  retry:
+    attempts: 5
+    backoff_seconds: 2.0
+
+bars:
+  grid_seconds: 1
+  # この秒数を超える無約定区間は「欠損」として報告し、その周辺の発火は無効化する
+  max_fill_gap_seconds: 300
+  # 発火判定の直前 1 時間のうち、実約定のあった秒の最低比率
+  min_active_second_ratio: 0.20
+
+features:
+  rv_window_seconds: 1800          # 凪判定の既定窓（grid.calm_window で上書き可）
+  calm_percentile: 25
+  calm_ref_days: 7
+  calm_exclude_seconds: 10         # 発火分（velocity の窓）を凪参照から除外する
+  calm_ref_sample_seconds: 60      # 7日分位点は分足サンプルで推定（等価かつ高速）
+  velocity_ks: [5, 10, 30]
+  velocity_primary_k: 10
+  sigma_ref_seconds: 3600
+  tick_window_seconds: 10
+  tick_ref_seconds: 3600
+  ofi_window_seconds: 10
+  impact_window_seconds: 10
+  impact_ref_seconds: 3600
+  oi_window_seconds: 900
+  # 参照値がこの下限を割る区間は比率が発散するので発火対象から外す
+  min_ref_trade_count: 1.0
+  min_ref_volume: 1.0e-9
+
+thresholds:                        # §3.3 初期パラメータ
+  sigma: 4.0
+  tick: 10.0
+  ofi: 0.6
+  impact: 3.0
+  calm_window: 1800
+  calm_percentile: 25
+
+grid:                              # §3.3 探索範囲（全組み合わせ数はログに記録される）
+  sigma: [3.0, 4.0, 5.0, 6.0]
+  tick: [5.0, 10.0, 20.0]
+  ofi: [0.4, 0.6, 0.8]
+  impact: [2.0, 3.0, 5.0]
+  calm_window: [1800, 3600, 7200]
+  calm_percentile: [15, 25, 40]
+
+events:
+  cooldown_seconds: 60
+  cooldown_scope: direction        # direction | symbol
+
+outcomes:
+  horizons: [15, 30, 60, 120, 300, 900]
+
+costs:
+  taker_fee_bps: 5.0               # 片道 0.05%
+  round_trip_sides: 2              # 往復 0.10%
+  fee_multiplier: 1.0              # BNB 割引 / VIP 等級はここで変数化
+  slippage:
+    half_spread_weight: 1.0
+    gap_weight: 1.0                # 約定間ギャップ（板消失の代理変数）
+    impact_weight: 0.5
+    min_bps: 0.5
+  sensitivity_multipliers: [1.0, 1.5, 2.0]   # §6.4 コスト感度
+
+viability:                         # §4.1 生死判定
+  horizon: 60
+  mfe_multiple_required: 3.0
+
+exits:                             # §4.4
+  e1_fractions: [0.2, 0.3, 0.5]
+  e3_fractions: [0.2, 0.3, 0.5]
+  e3_window_seconds: 10
+  peak_lookback_seconds: 10        # 発火時ピークの測定窓
+  hard_stop_k: 2.0                 # 発火時の 1 秒レンジ × K
+  max_hold_seconds: 600
+  min_hold_seconds: 3
+  # §4.5 損失側の実測: 逆指値の発動から実際に約定するまでの遅延（この間の約定を辿る）
+  stop_latency_ms: 300
+
+analysis:                          # §4.3 層別（時間帯は UTC 時で定義する）
+  sessions:
+    asia:   [0, 8]                 # [start_hour_utc, end_hour_utc)
+    europe: [7, 15]
+    us:     [13, 21]
+  us_open_utc_hour: 13.5           # 米国株式オープン(夏時間) 相当
+  us_open_window_minutes: 60
+  funding_hours_utc: [0, 8, 16]    # JST 9時 / 17時 / 1時
+  funding_window_minutes: 30
+  high_vol_percentile: 99          # 指標発表の代替: ボラ上位1%の時刻を自動抽出
+  high_vol_window_minutes: 15
+
+validation:                        # §6
+  n_folds: 9
+  sweep_horizon: 60                # 探索時の評価は固定時間決済(H秒)で統一する
+  chunk_days: 30                   # 特徴量計算のチャンク幅（メモリ制御用。結果に影響しない）
+  warmup_seconds: 12000            # チャンク先頭の助走（凪窓 7200 + 参照窓 3600 + 余裕）
+  min_wins: 30
+  bootstrap:
+    n_resamples: 2000
+    block_seconds: 86400
+    ci: 0.95
+  plateau:
+    min_neighbor_fraction: 0.7     # 近傍のこの割合が条件を満たさなければ棄却
+    plateau_ratio: 0.5             # 近傍が最良点のこの倍率以上の性能を保つこと
+    metric: "net_mean_pct"
+  selection_metric: "net_mean_pct" # ウォークフォワードの訓練期間で最大化する指標
+  # 試行回数ログは銘柄ごと（reports/<symbol>/<この名前>）。
+  # 別銘柄・合成データの試行が混ざると DSR の割り引きが意味を失う。
+  trials_log: "trials.json"

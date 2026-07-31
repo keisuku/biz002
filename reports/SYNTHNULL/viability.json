@@ -1,0 +1,14 @@
+{
+  "verdict": "FAIL",
+  "n_events": 156,
+  "horizon_s": 60,
+  "mfe_median_pct": 0.3194058346841501,
+  "mfe_p75_pct": 0.40721523729607323,
+  "mfe_p90_pct": 0.45995126907148076,
+  "fee_pct": 0.1,
+  "slippage_est_pct_one_way": 0.20538646932021404,
+  "cost_pct": 0.510772938640428,
+  "required_multiple": 3.0,
+  "actual_multiple": 0.6253382090569293,
+  "best_fixed_horizon_s": 60
+}
