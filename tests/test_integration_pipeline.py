@@ -20,6 +20,27 @@ from src.data.download import raw_path
 from src.data.to_seconds import build_day
 
 
+def test_contiguous_core_slice_does_not_bridge_sparse_window_gaps():
+    first = pl.DataFrame({"ts": list(range(100, 110))})
+    core = pl.DataFrame({"ts": list(range(200, 220))})
+    later = pl.DataFrame({"ts": list(range(300, 310))})
+    seconds = pl.concat([first, core, later])
+    sliced = pipe._contiguous_core_slice(seconds, 200, 220)
+    assert sliced["ts"].to_list() == list(range(200, 220))
+
+
+def test_contiguous_core_slice_rejects_a_gap_inside_core():
+    seconds = pl.DataFrame({"ts": [200, 201, 203, 204]})
+    with pytest.raises(ValueError, match="inside the core"):
+        pipe._contiguous_core_slice(seconds, 200, 205)
+
+
+def test_contiguous_core_slice_rejects_missing_core_edge():
+    seconds = pl.DataFrame({"ts": list(range(201, 220))})
+    with pytest.raises(ValueError, match="fully cover"):
+        pipe._contiguous_core_slice(seconds, 200, 220)
+
+
 @pytest.fixture(scope="module")
 def synth_env(tmp_path_factory):
     """3 日分の合成データを一時ディレクトリに構築する。"""
