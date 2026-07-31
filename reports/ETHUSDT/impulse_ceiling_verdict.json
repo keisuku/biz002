@@ -1,0 +1,15 @@
+{
+  "verdict": "CEILING_BELOW_BAR",
+  "meaning": "完璧な予言者でも MFE がコスト基準に届かない。検出器を速くしても勝てない。",
+  "net_positive_anywhere": false,
+  "net_note": "**どの (窓, 年齢) でも固定時間決済の純リターンは負**。MFE 基準を超えていても、実際に取り切れていない。",
+  "best_net_impulse_age_s": 0,
+  "best_net_bps": -11.633292527072713,
+  "best_window_s": 10,
+  "best_impulse_age_s": 0,
+  "best_median_mfe_bps": 18.749785965667513,
+  "median_cost_bps": 18.086988666430088,
+  "best_mfe_cost_multiple": 1.036644977860112,
+  "required_multiple": 3.0,
+  "n": 978
+}
