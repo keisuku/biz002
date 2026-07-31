@@ -1,0 +1,38 @@
+{
+  "as_of": "2026-07-31",
+  "scope": "engineering_spike_not_strategy_validation",
+  "source": "https://data.binance.vision",
+  "dataset": "USD-M futures daily aggTrades",
+  "period": {
+    "start": "2026-07-23",
+    "end": "2026-07-29",
+    "days": 7
+  },
+  "checksum_verified_archives": 14,
+  "symbols": [
+    {
+      "symbol": "BTCUSDT",
+      "seconds": 604800,
+      "long_missing_gaps": 0,
+      "flow_return_correlation": 0.3612286774,
+      "top_1pct_direction_alignment": 0.9644128114,
+      "events": 58,
+      "median_mfe_60_pct": 0.0112666450,
+      "median_cost_pct": 0.1399482331,
+      "mfe_cost_multiple": 0.0805058037,
+      "verdict": "FAIL"
+    },
+    {
+      "symbol": "ETHUSDT",
+      "seconds": 604800,
+      "long_missing_gaps": 0,
+      "flow_return_correlation": 0.3308455725,
+      "top_1pct_direction_alignment": 0.9501507894,
+      "events": 1,
+      "median_mfe_60_pct": 0.0005382305,
+      "median_cost_pct": 0.1341324170,
+      "mfe_cost_multiple": 0.0040126803,
+      "verdict": "FAIL_INSUFFICIENT_SAMPLE"
+    }
+  ]
+}
