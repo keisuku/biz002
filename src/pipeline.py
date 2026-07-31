@@ -122,7 +122,24 @@ def build_events(params: Params, symbol: str, days: list[date],
             sim_frames.append(exits_mod.simulate(e, sec, params, fixed_h, stop_fill=stop_fill,
                                                  cost_multiplier=cost_multiplier))
     ledger = pl.concat(ev_frames, how="diagonal_relaxed") if ev_frames else ev_mod._empty_events(params)
+    # extract_events is called per memory chunk. Apply cooldown once more over
+    # the assembled ledger so a chunk boundary cannot create a duplicate event.
+    if ledger.height:
+        ledger = ledger.sort("event_ts")
+        keep = ev_mod.apply_cooldown(
+            ledger["event_ts"].to_numpy(),
+            ledger["direction"].to_numpy(),
+            int(params.get_path("events.cooldown_seconds")),
+            str(params.get_path("events.cooldown_scope")),
+        )
+        ledger = ledger.filter(pl.Series(keep))
     sim = pl.concat(sim_frames, how="diagonal_relaxed") if sim_frames else pl.DataFrame()
+    if sim.height and ledger.height:
+        sim = sim.join(
+            ledger.select("symbol", "event_ts", "direction"),
+            on=["symbol", "event_ts", "direction"],
+            how="semi",
+        )
     return ledger.sort("event_ts"), sim
 
 
