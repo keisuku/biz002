@@ -9,6 +9,7 @@ Phase 2:
     python -m src.cli refs          --symbol BTCUSDT --start ... --end ...
     python -m src.cli events        --symbol BTCUSDT --start ... --end ...
     python -m src.cli funnel        --symbol BTCUSDT --start ... --end ...   # 発火条件の律速診断
+    python -m src.cli impulse-scan  --symbol BTCUSDT --start ... --end ...   # 初動エントリの天井（上限値）
     python -m src.cli analyze       --symbol BTCUSDT            # §4.1〜4.5
     python -m src.cli latency       --symbol BTCUSDT            # 手動執行の 0〜20 秒遅延
     python -m src.cli validate      --symbol BTCUSDT --start ... --end ...   # §6
@@ -172,6 +173,42 @@ def cmd_funnel(args, params) -> None:
     print(table)
     print("\n[凪の秒における比率分布] threshold_percentile が 100 に近いほど厳しい閾値")
     print(dist)
+
+
+def cmd_impulse_scan(args, params) -> None:
+    """初動エントリの天井を測る。**これはバックテストではない**（開始時刻に未来を使う）。
+
+    天井がコスト基準に届かなければ、検出器をいくら速くしても勝てない。
+    その判定だけを目的にしている。
+    """
+    from .analysis import impulse as imp
+
+    symbol = args.symbol
+    entries = pipe.build_impulse_scan(params, symbol, _days(params, args))
+    out = _report_dir(params, symbol)
+    if entries.height == 0:
+        print("初動が 1 件もラベルされなかった。期間かデータを確認すること。")
+        return
+    table = imp.ceiling_table(entries, params)
+    v = imp.verdict(table)
+    table.write_csv(out / "impulse_ceiling.csv")
+    (out / "impulse_ceiling_verdict.json").write_text(
+        json.dumps(v, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    print("※ 初動の開始時刻に未来を使った**上限値**であり、実行可能な戦略ではない。")
+    print(json.dumps(v, indent=2, ensure_ascii=False, default=str))
+    compact = table.select(
+        "window_s", "sigma_mult", "impulse_age_s", "n",
+        pl.col("median_impulse_bps").round(2),
+        pl.col("median_mfe_bps").round(2),
+        pl.col("median_cost_bps").round(2),
+        pl.col("mfe_cost_multiple").round(2),
+        pl.col("mean_net_bps").round(2),
+        pl.col("win_rate_after_cost").round(3),
+        "ceiling_clears_bar",
+    ).sort(["window_s", "impulse_age_s"])
+    print("\n初動年齢 = 検出窓 + 通知遅延 + 人間の反応。age=0 は不可能な理想値（天井）。")
+    with pl.Config(tbl_rows=60, tbl_cols=15, fmt_str_lengths=30):
+        print(compact)
 
 
 def cmd_analyze(args, params) -> None:
@@ -369,6 +406,7 @@ def main(argv=None) -> None:
     p = sub.add_parser("refs"); add_common(p); p.set_defaults(fn=cmd_refs)
     p = sub.add_parser("events"); add_common(p); p.set_defaults(fn=cmd_events)
     p = sub.add_parser("funnel"); add_common(p); p.set_defaults(fn=cmd_funnel)
+    p = sub.add_parser("impulse-scan"); add_common(p); p.set_defaults(fn=cmd_impulse_scan)
     p = sub.add_parser("analyze"); add_common(p)
     p.add_argument("--force", action="store_true", help="生死判定 FAIL でも続行する（推奨しない）")
     p.add_argument("--tick-stops", action="store_true", help="§4.5 の tick 実測でストップ約定を推定")

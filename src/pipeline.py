@@ -172,6 +172,44 @@ def build_funnel(params: Params, symbol: str, days: list[date],
     return funnel_mod.merge_chunks(chunks)
 
 
+def build_impulse_scan(params: Params, symbol: str, days: list[date]) -> pl.DataFrame:
+    """初動エントリの天井測定（src/analysis/impulse.py）。検出器は使わない。
+
+    コストは発火台帳と**同じモデル**で見積もる（比較可能にするため）。そのため
+    core features を計算して gap / range 列をエントリ秒から引く。
+    """
+    from .analysis import impulse as imp
+
+    cfg = params["impulse_scan"]
+    warm = int(params.get_path("validation.warmup_seconds"))
+    fwd = int(max(cfg["horizons"]) + max(cfg["entry_ages"]) + max(cfg["windows"]) + 5)
+    frames = []
+    for c0, c1 in _chunks(days, int(params.get_path("validation.chunk_days"))):
+        t0, t1 = day_start_ts(c0), day_start_ts(c1) + SECONDS_PER_DAY
+        sec = load_seconds(params, symbol, t0 - warm, t1 + fwd)
+        if sec.height == 0:
+            continue
+        core = feat.compute_core_features(sec, params)
+        costs = out_mod.add_costs(
+            core.select("ts", "gap_mean_bps_ref", "gap_max_bps_w", "range_bps_1s"), params
+        ).select("ts", "cost_pct")
+        for w in cfg["windows"]:
+            for mult in cfg["sigma_mults"]:
+                starts = imp.label_impulse_starts(
+                    sec, int(w), float(mult), int(cfg["cooldown_seconds"]),
+                    int(params.get_path("features.sigma_ref_seconds")),
+                )
+                starts = starts.filter((pl.col("ts") >= t0) & (pl.col("ts") < t1))
+                if starts.height == 0:
+                    continue
+                e = imp.oracle_entries(sec, starts, int(w), list(cfg["entry_ages"]),
+                                       list(cfg["horizons"]), costs)
+                if e.height:
+                    frames.append(e.with_columns(pl.lit(float(mult)).alias("sigma_mult"),
+                                                 pl.lit(symbol).alias("symbol")))
+    return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+
 def simulate_exits_for_ledger(params: Params, symbol: str, ledger: pl.DataFrame,
                               fixed_horizon: int,
                               stop_fill: exits_mod.StopFillEstimator | None = None,

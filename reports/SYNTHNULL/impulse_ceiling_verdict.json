@@ -1,0 +1,15 @@
+{
+  "verdict": "CEILING_CLEARS_BAR",
+  "meaning": "MFE 基準を超えた組み合わせがある。**勝てる証拠ではない**（MFE は最良の瞬間に降りられた場合の幅）。実時間検出器を検討してよい、というだけ。",
+  "net_positive_anywhere": false,
+  "net_note": "**どの (窓, 年齢) でも固定時間決済の純リターンは負**。MFE 基準を超えていても、実際に取り切れていない。",
+  "best_net_impulse_age_s": 0,
+  "best_net_bps": -7.296168720021795,
+  "best_window_s": 5,
+  "best_impulse_age_s": 0,
+  "best_median_mfe_bps": 89.66214661721233,
+  "median_cost_bps": 20.487774509760463,
+  "best_mfe_cost_multiple": 4.376373167056134,
+  "required_multiple": 3.0,
+  "n": 134
+}
