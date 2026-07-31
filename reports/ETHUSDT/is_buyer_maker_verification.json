@@ -1,0 +1,9 @@
+{
+  "verdict": "PASS",
+  "n": 3781239,
+  "correlation": 0.09769185935834827,
+  "tail_alignment": 0.9028376484277894,
+  "interpretation": "is_buyer_maker=False means taker buy",
+  "symbol": "ETHUSDT",
+  "days": 46
+}
