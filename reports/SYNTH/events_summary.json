@@ -1,0 +1,17 @@
+{
+  "symbol": "SYNTH",
+  "n_events": 21,
+  "thresholds": {
+    "sigma": 4.0,
+    "tick": 10.0,
+    "ofi": 0.6,
+    "impact": 3.0,
+    "calm_window": 1800,
+    "calm_percentile": 25
+  },
+  "first_event": 1735788378,
+  "last_event": 1736696075,
+  "long_events": 10,
+  "short_events": 11,
+  "ledger_path": "/home/user/biz002/data/events/SYNTH_events.parquet"
+}

@@ -1,0 +1,17 @@
+{
+  "symbol": "SYNTHNULL",
+  "n_events": 156,
+  "thresholds": {
+    "sigma": 4.0,
+    "tick": 10.0,
+    "ofi": 0.6,
+    "impact": 3.0,
+    "calm_window": 1800,
+    "calm_percentile": 25
+  },
+  "first_event": 1735786931,
+  "last_event": 1737848464,
+  "long_events": 75,
+  "short_events": 81,
+  "ledger_path": "/home/user/biz002/data/events/SYNTHNULL_events.parquet"
+}

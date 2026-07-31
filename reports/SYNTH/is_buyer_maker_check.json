@@ -1,0 +1,15 @@
+{
+  "verdict": "PASS",
+  "window_seconds": 10,
+  "n_windows": 1036790,
+  "n_up": 1038,
+  "n_down": 1038,
+  "up_move_threshold": 0.000511845456247606,
+  "down_move_threshold": -0.0005157494423034814,
+  "mean_signed_ofi_ratio_on_up": 0.06969983833132419,
+  "mean_signed_ofi_ratio_on_down": -0.03612650547277405,
+  "corr_ret_vs_ofi": 0.01174374077467938,
+  "expectation": "up>0, down<0, corr>0",
+  "symbol": "SYNTH",
+  "days": 12
+}

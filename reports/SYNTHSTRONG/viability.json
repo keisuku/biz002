@@ -1,0 +1,14 @@
+{
+  "verdict": "PASS",
+  "n_events": 361,
+  "horizon_s": 60,
+  "mfe_median_pct": 2.1580466517087182,
+  "mfe_p75_pct": 2.2772391496787643,
+  "mfe_p90_pct": 2.3522758666500687,
+  "fee_pct": 0.1,
+  "slippage_est_pct_one_way": 0.2065870531183234,
+  "cost_pct": 0.5131741062366468,
+  "required_multiple": 3.0,
+  "actual_multiple": 4.205291392300977,
+  "best_fixed_horizon_s": 60
+}

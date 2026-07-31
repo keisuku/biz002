@@ -1,0 +1,41 @@
+# 第1段階: BTC/ETH で手法の生死を判定する
+stage1:
+  - BTCUSDT
+  - ETHUSDT
+
+# 第2段階: 生死判定を通過したら出来高上位銘柄へ横展開して比較する。
+# 板が薄く飛びやすいアルトのほうが本手法に適する可能性があるため必ず比較する。
+# ※ このリストは執筆時点の目安。実行前に exchangeInfo / 24h 出来高で再確認すること。
+stage2:
+  - SOLUSDT
+  - XRPUSDT
+  - DOGEUSDT
+  - BNBUSDT
+  - ADAUSDT
+  - AVAXUSDT
+  - LINKUSDT
+  - LTCUSDT
+  - TRXUSDT
+  - DOTUSDT
+  - NEARUSDT
+  - APTUSDT
+  - SUIUSDT
+  - OPUSDT
+  - ARBUSDT
+  - FILUSDT
+  - INJUSDT
+  - TIAUSDT
+
+# 取得する種別（実在するディレクトリ名は download.py が実行時に照合する）
+datasets:
+  required:
+    - aggTrades
+    - klines
+  recommended:
+    - metrics
+    - bookTicker
+  optional:
+    - bookDepth
+    - liquidationSnapshot
+
+klines_interval: "1m"

@@ -1,0 +1,13 @@
+symbol,date,status,path,rows,trades,empty_seconds,long_gaps,gap_seconds
+SYNTH,2025-01-01,ok,/home/user/biz002/data/bars/SYNTH/2025-01-01.parquet,86400,474988,3034,0,0
+SYNTH,2025-01-02,ok,/home/user/biz002/data/bars/SYNTH/2025-01-02.parquet,86400,459556,3181,0,0
+SYNTH,2025-01-03,ok,/home/user/biz002/data/bars/SYNTH/2025-01-03.parquet,86400,442458,3314,0,0
+SYNTH,2025-01-04,ok,/home/user/biz002/data/bars/SYNTH/2025-01-04.parquet,86400,461890,3052,0,0
+SYNTH,2025-01-05,ok,/home/user/biz002/data/bars/SYNTH/2025-01-05.parquet,86400,522356,2818,0,0
+SYNTH,2025-01-06,ok,/home/user/biz002/data/bars/SYNTH/2025-01-06.parquet,86400,495752,2963,0,0
+SYNTH,2025-01-07,ok,/home/user/biz002/data/bars/SYNTH/2025-01-07.parquet,86400,443112,3248,0,0
+SYNTH,2025-01-08,ok,/home/user/biz002/data/bars/SYNTH/2025-01-08.parquet,86400,426031,3387,0,0
+SYNTH,2025-01-09,ok,/home/user/biz002/data/bars/SYNTH/2025-01-09.parquet,86400,465213,3100,0,0
+SYNTH,2025-01-10,ok,/home/user/biz002/data/bars/SYNTH/2025-01-10.parquet,86400,444877,3141,0,0
+SYNTH,2025-01-11,ok,/home/user/biz002/data/bars/SYNTH/2025-01-11.parquet,86400,475675,3138,0,0
+SYNTH,2025-01-12,ok,/home/user/biz002/data/bars/SYNTH/2025-01-12.parquet,86400,470056,3228,0,0

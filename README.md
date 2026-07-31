@@ -1,0 +1,169 @@
+# モメンタム・イグニッション検出器
+
+「凪から瞬間的に値動きの速度が急変した直後」を検出し、その方向へ乗って「速度が緩んだ瞬間」に
+撤退するスキャル手法を、**まず統計的に成立するかどうか検証する**ためのリポジトリ。
+
+* Phase 1 データ取得・整備（バッチ）— 実装済み
+* Phase 2 発火イベント台帳と統計分析（バッチ）— 実装済み
+* Phase 3 リアルタイム検出器と通知（VPS 常駐）— **未着手（着手しない）**
+
+Phase 3 は「Phase 2 の生死判定（§4.1）を実データで通過した場合のみ」作る、という指示書の
+条件を満たしていないため、コードは一行も書いていない。`src/live/` は存在しない。
+
+---
+
+## 現在の状態（重要）
+
+**実データはまだ 1 バイトも取得できていない。** この開発環境からの外向き通信は組織の
+egress ポリシー配下にあり、Binance の配布ホストがすべて拒否される:
+
+| ホスト | 結果 |
+|---|---|
+| `data.binance.vision` | CONNECT に 403（ポリシー拒否） |
+| `fapi.binance.com` | 接続不可 |
+| `api.binance.com` | 接続不可 |
+| `data-api.binance.vision` | 接続不可 |
+
+したがって現時点で報告できる「手法の生死」は**無い**。数字が必要なのは実データであって
+コードではない。詳細と、通信が通る環境で何をどの順に流すかは `docs/PHASE2_REPORT.md` を参照。
+
+パイプライン自体は、既知の正解を埋め込んだ合成データで端から端まで動作確認済み
+（§「検証の状態」参照）。実データが手に入ったら `synth` を `download` に置き換えるだけで、
+下流のコードはそのまま動く。
+
+---
+
+## セットアップ
+
+```bash
+pip install -r requirements.txt
+python -m pytest tests -q          # 52 件
+```
+
+Python 3.11+ / Polars / NumPy / SciPy / PyArrow。データは Parquet。
+
+## 実行手順
+
+### Phase 1 — データ取得
+
+```bash
+# 1. バケットの実構造を取得して reports/data_layout.json に保存する
+#    （指示書のパスは起点にすぎない。実物と食い違えば実物に合わせる）
+python -m src.cli discover --symbol BTCUSDT
+
+# 2. 取得（aggTrades / klines / metrics / bookTicker）
+python -m src.cli download --symbol BTCUSDT --start 2023-08-01 --end 2026-07-29
+
+# 3. 1 秒バーへの集約 + 欠損期間レポート
+python -m src.cli bars --symbol BTCUSDT --start 2023-08-01 --end 2026-07-29
+
+# 4. is_buyer_maker の極性検証（急騰局面でテイカー買いが優勢になるか）
+python -m src.cli verify-flags --symbol BTCUSDT --start 2023-08-01 --end 2026-07-29
+```
+
+### Phase 2 — 台帳と分析
+
+```bash
+python -m src.cli refs   --symbol BTCUSDT --start ... --end ...   # 凪判定用の参照系列
+python -m src.cli events --symbol BTCUSDT --start ... --end ...   # 発火イベント台帳
+python -m src.cli analyze --symbol BTCUSDT --tick-stops           # §4.1〜§4.5
+```
+
+`analyze` は **§4.1 の生死判定で FAIL なら、そこで止まる**。
+時間帯分析にも出口シミュレーションにも進まない（`--force` を明示すれば続行できるが、
+指示書 §9 のとおり、まず数字を見て判断すること）。
+
+生死判定を通過した場合のみ:
+
+```bash
+python -m src.cli validate --symbol BTCUSDT --start ... --end ...  # §6 の 1〜6
+python -m src.cli trials --n 3 --note "手動でしきい値を調整した回数"  # §9 手動調整も加算する
+```
+
+### 合成データ（コード検証専用）
+
+```bash
+python -m src.cli synth --symbol SYNTHSTRONG --start 2025-01-01 --end 2025-03-01 --profile strong
+```
+
+`--profile` は `realistic` / `strong` / `null` の 3 つ。いずれも人工データであり、
+**ここから出る数字は手法の証拠にはならない**（`src/data/synthetic.py` 冒頭に明記）。
+
+---
+
+## 設計上の判断
+
+### 板データの非対称性（§2.3）
+コア検出ロジックは **aggTrades と klines だけ**で構成する。バックテストと本番で
+同じ特徴量が使えるようにするため。板の消失は次の代理変数で表現する:
+
+* 単位出来高あたりの価格インパクト `impact = |10秒価格変化率| / 10秒出来高`
+* 連続する約定間の価格ギャップ `gap_max_bps`（1 秒バー生成時に算出）
+* `bookTicker` 由来のスプレッド（あれば `spread_bps` 列として使用、無ければギャップで代替）
+
+実板（`depth`）は Phase 3 のオプション確認用であって、必須条件にはしない。
+
+### ルックアヘッドの防止（§6.7）
+特徴量に使ってよい時系列操作は後ろ向き窓 `rolling_*` と過去方向 `shift(+n)` のみ。
+参照統計（`sigma_ref` / `tick_ref` / `impact_ref` / 凪の分位点）は発火そのものを含まないよう
+必ず窓の分だけ過去にずらす。`tests/test_lookahead.py` が全特徴量に対して
+「未来を足すと値が変わるか」を機械的に検査する。
+
+### 時刻・単位の扱い
+* Binance は配布 CSV のヘッダ有無と時刻粒度（ms / µs）を途中で変えている。パーサは
+  ファイルごとに判定する。決め打ちすると 1000 倍ずれた「未来」のデータになる。
+* `is_buyer_maker == true` は買い手がメイカー、すなわち**テイカーは売り**。
+  反転させると全ての結論が逆になるため、実データでの検証コマンドを用意している。
+* 1 秒バーは常に密（1 日 86400 行）。ローリング窓の「行数 = 秒数」を保証するため。
+  約定が無い秒は `is_filled=True` で記録し、長い欠損の周辺では発火させない。
+
+### 単位の約束
+`mfe_H` / `mae_H` / `ret_H` / `*_pct` は**パーセント (%)**、`*_bps` は bps (0.01%)。
+MFE >= 0、MAE <= 0（一度も順行/逆行しなければ 0）。
+
+---
+
+## 検証の状態
+
+`pytest tests` = 52 件。内訳:
+
+| 対象 | 内容 |
+|---|---|
+| ルックアヘッド | 全特徴量に対する「未来を足しても値が変わらない」検査、参照窓が発火を含まないこと、MFE が発火した秒の高値を含まないこと |
+| 特徴量の値 | rv / velocity / tick_ratio / ofi_ratio / impact の定義どおりの算出、欠損区間の除外、凪判定 |
+| Phase 1 集約 | OHLCV・テイカー売買の分離・空秒の穴埋め・ギャップ算出・`is_buyer_maker` 極性検査が反転を検出すること |
+| パーサ | ヘッダ有無 3 形式、秒/ms/µs/ns の正規化、数値フラグ、列数超過、zip、チェックサム長判定 |
+| 発火・結果・出口 | クールダウンの統合、4 条件の AND、MFE/MAE の符号、往復コスト、E1〜E5 の発動条件、ハードストップ優先、最大保有時間 |
+| §6 の手続き | fold の連続性、訓練期間の選択が凍結されること、DSR が試行回数で罰されること、ブロックブートストラップ、プラトー判定が尖ったピークを棄却すること、試行回数ログ |
+| 結合テスト | 合成データに埋め込んだ発火だけを正しい向きで検出すること（適合率 100%）、チャンク幅が結果を変えないこと、継続順行の無い世界で生死判定が FAIL を返すこと |
+
+---
+
+## ディレクトリ
+
+```
+config/          params.yaml（全閾値）, symbols.yaml
+src/
+  data/          download.py（構造を実行時に取得）, to_seconds.py, verify_flags.py, synthetic.py
+  features.py    §3.2 特徴量
+  events.py      §3.3 発火抽出
+  outcomes.py    §3.4 MFE/MAE とコスト
+  exits.py       §4.4 出口ルール E1〜E5
+  analysis/      viability.py(§4.1-4.2) heatmap.py(§4.3) stop_fill.py(§4.5) validation.py(§6)
+  pipeline.py    チャンク処理と格子探索
+  cli.py         コマンド入口
+tests/           52 件
+reports/         生成物（CSV / PNG / JSON）
+docs/            PHASE2_REPORT.md
+```
+
+閾値はすべて `config/params.yaml` にある。コード内にマジックナンバーは置かない。
+
+## やらないこと
+
+1. ダッシュボード・チャート UI を作らない（出力は通知とログのみ。分析結果は静的な CSV/PNG）
+2. 自動発注は実装しない
+3. 価格ベースのトレーリングストップを使わない
+4. RSI 等のオシレーターを使わない
+5. 有利な時間帯を定数としてハードコードしない
+6. 生死判定を通過していない手法に Phase 3 を作らない

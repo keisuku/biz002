@@ -1,0 +1,9 @@
+test_fold,selected,reason,train_metric,oos_metric,oos_n,oos_wins
+1,"{""calm_window"": 1800, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 3.0}",ok,1.8890360515362832,1.7771564320680786,55,54
+2,"{""calm_window"": 1800, ""calm_percentile"": 15.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 3.0}",ok,1.8453059234253841,1.7627713074441334,30,30
+3,"{""calm_window"": 3600, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 2.0}",ok,1.8574660866722106,1.8338375380900163,58,58
+4,"{""calm_window"": 3600, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 2.0}",ok,1.8338375380900163,1.8268811589791065,49,49
+5,"{""calm_window"": 3600, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 3.0}",ok,1.8268811589791065,1.7527012535824071,49,48
+6,"{""calm_window"": 1800, ""calm_percentile"": 15.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 2.0}",ok,1.8824351491323545,1.8234875143171003,35,35
+7,"{""calm_window"": 3600, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 5.0}",ok,1.8831394671975372,1.7483446743584465,40,40
+8,"{""calm_window"": 7200, ""calm_percentile"": 25.0, ""sigma"": 3.0, ""tick"": 5.0, ""ofi"": 0.4, ""impact"": 3.0}",ok,1.8063872399281509,1.7780157442497853,55,54
