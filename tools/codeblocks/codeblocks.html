@@ -1,0 +1,2343 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CodeBlocks - ブロック単位コード管理</title>
+<style>
+/* ==== 基本 ==== */
+:root{
+  --bg:#f4f6f9; --panel:#fff; --line:#d9dee6; --text:#1f2937; --muted:#6b7280;
+  --blue:#1a6fd6; --blue-d:#155bb0; --blue-l:#e8f1fc; --green:#1e8e4e; --green-l:#e6f6ec;
+  --red:#c53030; --red-l:#fdecec; --yellow:#b7791f; --yellow-l:#fff6e0; --gray-l:#eef0f3;
+  --mono:Consolas,"Courier New",monospace; --radius:8px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:"Segoe UI","Yu Gothic UI","Meiryo",sans-serif;font-size:14px;color:var(--text);background:var(--bg);display:flex;flex-direction:column;min-height:100vh}
+button{font:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:inherit}
+textarea{width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:10px;background:#fff;resize:vertical}
+pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.5;white-space:pre;overflow:auto}
+code{font-family:var(--mono)}
+a{color:var(--blue)}
+.hidden{display:none!important}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.mono{font-family:var(--mono)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.grow{flex:1 1 auto}
+/* ==== ヘッダーとステップ ==== */
+.top{background:#fff;border-bottom:1px solid var(--line);padding:10px 20px;position:sticky;top:0;z-index:5}
+.brand{font-weight:700;font-size:16px;display:flex;align-items:baseline;gap:10px}
+.brand span{font-weight:400;color:var(--muted);font-size:12.5px}
+.steps{list-style:none;display:flex;gap:6px;margin:10px 0 0;padding:0}
+.steps li{flex:1;border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px;background:#fafbfc;cursor:pointer;min-width:0}
+.steps li .n{display:inline-block;width:22px;height:22px;border-radius:50%;background:#cfd6e0;color:#fff;text-align:center;line-height:22px;font-weight:700;font-size:12px;margin-right:6px}
+.steps li .t{font-weight:600}
+.steps li .d{display:block;font-size:11.5px;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.steps li.current{border-color:var(--blue);background:var(--blue-l)}
+.steps li.current .n{background:var(--blue)}
+.steps li.done .n{background:var(--green)}
+.steps li.locked{opacity:.55;cursor:not-allowed}
+/* ==== メイン ==== */
+main{flex:1;padding:18px 20px 120px;max-width:1400px;width:100%;margin:0 auto}
+.step{display:none}
+.step.active{display:block}
+.step-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+.step-head h1{font-size:20px;margin:0}
+.step-head .lead{color:var(--muted)}
+.help-btn{margin-left:auto;border:1px solid var(--line);background:#fff;border-radius:50%;width:30px;height:30px;font-weight:700;color:var(--blue)}
+.help-box{background:#fff;border:1px solid var(--line);border-left:4px solid var(--blue);border-radius:var(--radius);padding:12px 16px;margin-bottom:14px;line-height:1.7}
+.help-box h3{margin:0 0 6px;font-size:14px}
+.help-box ul{margin:4px 0 0;padding-left:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.card+.card{margin-top:12px}
+.card h2{font-size:15px;margin:0 0 10px}
+.btn{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:8px 14px;color:var(--text)}
+.btn:hover{background:#f3f5f8}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700;padding:12px 22px;font-size:15px}
+.btn.primary:hover{background:var(--blue-d)}
+.btn.link{border:none;background:none;color:var(--blue);text-decoration:underline;padding:4px 6px}
+.btn.big{font-size:15px;padding:12px 20px}
+.btn.danger{color:var(--red);border-color:#f3c1c1}
+.nav{display:flex;justify-content:space-between;margin-top:18px}
+.note{background:var(--gray-l);border-radius:var(--radius);padding:10px 14px;line-height:1.7}
+.note.ok{background:var(--green-l);color:#14532d}
+.note.warn{background:var(--yellow-l);color:#7c4a03}
+.note.err{background:var(--red-l);color:#7f1d1d}
+.note.info{background:var(--blue-l);color:#1e3a8a}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;background:var(--gray-l);color:var(--muted)}
+.badge.ok{background:var(--green-l);color:var(--green)}
+.badge.warn{background:var(--yellow-l);color:var(--yellow)}
+.badge.err{background:var(--red-l);color:var(--red)}
+.badge.info{background:var(--blue-l);color:var(--blue)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px}
+.empty{color:var(--muted);text-align:center;padding:30px 10px;line-height:1.8}
+/* ==== ① 読み込む ==== */
+.dropzone{border:2px dashed #9fb3cc;border-radius:12px;background:#fff;padding:48px 20px;text-align:center;transition:.15s}
+.dropzone.over{background:var(--blue-l);border-color:var(--blue)}
+.dropzone .big{font-size:20px;font-weight:700;margin-bottom:6px}
+.dropzone .sub{color:var(--muted);margin-bottom:16px}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin:8px 0}
+.stats div b{font-size:20px;display:block}
+/* ==== ② 選ぶ ==== */
+.split{display:grid;grid-template-columns:minmax(320px,2fr) minmax(360px,3fr);gap:14px;align-items:start}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+.toolbar input[type=text]{flex:1;min-width:160px;border:1px solid var(--line);border-radius:var(--radius);padding:8px 10px}
+.toolbar select{border:1px solid var(--line);border-radius:var(--radius);padding:7px 8px;background:#fff}
+.blist{background:#fff;border:1px solid var(--line);border-radius:var(--radius);max-height:calc(100vh - 330px);min-height:300px;overflow:auto}
+.blist .sec{padding:6px 10px;font-size:12px;color:var(--muted);background:#f7f8fa;border-top:1px solid var(--line);border-bottom:1px solid var(--line);position:sticky;top:0}
+.blist .item{display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid #eef0f3;cursor:pointer}
+.blist .item:hover{background:#f7faff}
+.blist .item.active{background:var(--blue-l)}
+.blist .item .nm{font-family:var(--mono);font-size:12.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blist .item .role{color:var(--muted);font-size:11.5px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.blist .item .ln{color:var(--muted);font-size:11px;width:44px;text-align:right}
+.kind{display:inline-block;width:18px;height:18px;line-height:18px;text-align:center;border-radius:4px;font-size:10.5px;font-weight:700;color:#fff;background:#8a94a6}
+.kind.function{background:#1a6fd6}.kind.class{background:#7c3aed}.kind.var{background:#0f8b8d}.kind.assign{background:#0f8b8d}
+.kind.css{background:#d97706}.kind.html{background:#c2410c}.kind.frozen{background:#6b7280}.kind.stmt{background:#94a3b8}.kind.text{background:#94a3b8}
+.detail .title{font-family:var(--mono);font-size:14px;font-weight:700;word-break:break-all}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:4px 0}
+.chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:2px 10px;font-family:var(--mono);font-size:12px;cursor:pointer}
+.chip:hover{background:var(--blue-l);border-color:var(--blue)}
+.chip.sel{background:var(--blue-l);border-color:var(--blue)}
+.codebox{background:#0f172a;color:#e2e8f0;border-radius:var(--radius);padding:12px;max-height:50vh;overflow:auto}
+.codebox pre{color:inherit}
+.scope{background:var(--blue-l);border:1px solid #bcd3f2;border-radius:var(--radius);padding:12px 14px;margin-bottom:10px}
+.scope b.num{font-size:18px}
+.scope label{display:block;margin-top:6px}
+/* ==== ③ 依頼 ==== */
+.kinds{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 12px}
+.kinds button{border:1px solid var(--line);background:#fff;border-radius:var(--radius);padding:10px 14px;min-width:120px}
+.kinds button.sel{border-color:var(--blue);background:var(--blue-l);font-weight:700;color:var(--blue-d)}
+.kinds button small{display:block;font-weight:400;color:var(--muted);font-size:11px;margin-top:2px}
+/* ==== ④ 取り込む ==== */
+.cards{display:flex;flex-direction:column;gap:10px}
+.ccard{border:1px solid var(--line);border-left:5px solid #94a3b8;border-radius:var(--radius);background:#fff;padding:10px 14px}
+.ccard.replace{border-left-color:var(--green)}
+.ccard.add{border-left-color:var(--blue)}
+.ccard.delete{border-left-color:var(--red)}
+.ccard.warn{border-left-color:var(--yellow)}
+.ccard.err{border-left-color:var(--red);background:#fff8f8}
+.ccard .head{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.ccard .head .nm{font-family:var(--mono);font-weight:700}
+.ccard .msgs{margin:6px 0 0;padding-left:0;list-style:none;line-height:1.6}
+.ccard .msgs li{padding:3px 0}
+.diff{margin-top:8px;border:1px solid var(--line);border-radius:6px;overflow:auto;max-height:50vh;font-family:var(--mono);font-size:12px;line-height:1.45}
+.diff div{padding:0 8px;white-space:pre}
+.diff .del{background:#fde8e8;color:#8a1c1c}
+.diff .ins{background:#e3f7ea;color:#14532d}
+.diff .skip{background:#f3f4f6;color:var(--muted);text-align:center;font-style:italic}
+/* ==== ⑤ 保存 ==== */
+.summary{display:flex;gap:16px;flex-wrap:wrap;margin:6px 0 14px}
+.summary div{background:var(--gray-l);border-radius:var(--radius);padding:10px 16px}
+.summary b{font-size:22px;display:block}
+details.reuse{margin-top:14px}
+details.reuse summary{cursor:pointer;font-weight:600;padding:6px 0}
+/* ==== ステータスバー / モーダル / トースト ==== */
+.statusbar{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);padding:8px 20px;display:flex;gap:16px;align-items:center;font-size:12.5px;z-index:5}
+.statusbar .file{font-weight:600}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;z-index:20}
+.modal{background:#fff;border-radius:12px;width:min(900px,94vw);max-height:90vh;overflow:auto;padding:20px 24px}
+.modal h2{margin:0 0 12px}
+.modal textarea{font-family:var(--mono);font-size:12.5px}
+#toast{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);background:#1f2937;color:#fff;padding:10px 18px;border-radius:999px;opacity:0;transition:.2s;pointer-events:none;z-index:30}
+#toast.show{opacity:1}
+@media (max-width:900px){.split{grid-template-columns:1fr}.steps li .d{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ==== ヘッダー: 進捗ステップ ==== -->
+<header class="top">
+  <div class="brand">CodeBlocks <span>ブロック（関数などのひとかたまり）単位で、AIに差し替えを依頼するためのオフライン管理ツール</span></div>
+  <ol class="steps" id="steps"></ol>
+</header>
+
+<main id="main">
+
+<!-- ==== ① 読み込む ==== -->
+<section class="step" id="step1">
+  <div class="step-head"><h1>① 管理したいHTMLファイルを読み込みます</h1><span class="lead">ファイルは書き換えません。分けて中身を見るだけです。</span><button class="help-btn" data-help="1">?</button></div>
+  <div class="help-box hidden" id="help1"></div>
+  <div class="card hidden" id="resumeCard">
+    <div class="row"><div class="grow"><b>前回の続き</b>があります: <span id="resumeInfo" class="mono"></span></div><button class="btn" id="btnResume">前回の続きを開く</button><button class="btn link" id="btnResumeDiscard">破棄</button></div>
+  </div>
+  <div class="dropzone" id="dropzone">
+    <div class="big">HTMLファイルをここにドロップ</div>
+    <div class="sub">または</div>
+    <button class="btn primary" id="btnPick">ファイルを選ぶ</button>
+    <input type="file" id="fileInput" accept=".html,.htm,.js,.txt" class="hidden">
+    <div class="sub" style="margin-top:18px">初めての方は <button class="btn link" id="btnSample">サンプルで試す</button>（練習用の小さなツールを読み込みます）</div>
+  </div>
+  <details style="margin-top:12px"><summary class="muted" style="cursor:pointer">貼り付けで読み込む（ファイルを選べないとき）</summary>
+    <div class="card" style="margin-top:8px">
+      <input type="text" id="pasteName" placeholder="ファイル名（例: tool.html）" style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:300px;margin-bottom:8px">
+      <textarea id="pasteSrc" rows="8" placeholder="HTML全文をここに貼り付け"></textarea>
+      <div style="margin-top:8px"><button class="btn" id="btnPasteLoad">貼り付けた内容を読み込む</button></div>
+    </div>
+  </details>
+  <div class="card hidden" id="loadResult"></div>
+  <div class="nav"><span></span><button class="btn primary hidden" id="toStep2">次へ: ② 直したい関数を選ぶ →</button></div>
+</section>
+
+<!-- ==== ② 選ぶ ==== -->
+<section class="step" id="step2">
+  <div class="step-head"><h1>② 直したい関数（ブロック）を選びます</h1><span class="lead">チェックしたものだけがAIに渡ります。</span><button class="help-btn" data-help="2">?</button></div>
+  <div class="help-box hidden" id="help2"></div>
+  <div class="split">
+    <div>
+      <div class="toolbar">
+        <input type="text" id="search" placeholder="関数名・コメントで絞り込み（例: sum, 集計）">
+        <select id="kindFilter"><option value="">すべての種類</option><option value="function">関数</option><option value="class">クラス</option><option value="var">定数・変数</option><option value="css">CSS</option><option value="html">HTML</option><option value="stmt">その他の文</option></select>
+      </div>
+      <div class="toolbar small">
+        <button class="btn" id="btnSelectRelated">関連もまとめて選ぶ</button>
+        <button class="btn" id="btnClearSel">選択をすべて解除</button>
+        <span class="muted" id="listCount"></span>
+      </div>
+      <div class="blist" id="blist"></div>
+    </div>
+    <div>
+      <div class="scope" id="scope"></div>
+      <div class="card detail" id="detail"><div class="empty">左の一覧から関数を選ぶと、ここにコードと「呼んでいる / 呼ばれている」関数が出ます。</div></div>
+    </div>
+  </div>
+  <div class="nav"><button class="btn" data-goto="1">← ① 読み込みに戻る</button><button class="btn primary" id="toStep3">次へ: ③ AIに依頼する →</button></div>
+</section>
+
+<!-- ==== ③ AIに依頼 ==== -->
+<section class="step" id="step3">
+  <div class="step-head"><h1>③ やりたいことを書いて、AI用のプロンプトを作ります</h1><span class="lead">規約・返答形式・関連関数の署名は自動で付きます。</span><button class="help-btn" data-help="3">?</button></div>
+  <div class="help-box hidden" id="help3"></div>
+  <div class="card">
+    <h2>やりたいこと</h2>
+    <textarea id="task" rows="4" placeholder="例: 集計が0件のとき例外になるのを直したい。0件なら 0 を返してほしい。"></textarea>
+    <h2 style="margin-top:14px">依頼の種類</h2>
+    <div class="kinds" id="kinds"></div>
+    <div class="row small">
+      <label><input type="checkbox" id="optToc" checked> ファイル全体の目次を付ける（AIが既存関数を再利用しやすくなる）</label>
+      <label><input type="checkbox" id="optFull"> 全文で依頼する（従来方式。ファイル全部を貼る）</label>
+    </div>
+    <div class="note warn hidden" id="askWarn" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="row"><h2 class="grow">生成されたプロンプト <span class="badge" id="promptLen"></span></h2><button class="btn primary" id="btnCopyPrompt">プロンプトをコピー</button></div>
+    <textarea id="prompt" rows="16" readonly style="font-family:var(--mono);font-size:12px;margin-top:8px"></textarea>
+    <div class="note info hidden" id="afterCopy" style="margin-top:10px">コピーしました。<b>社内AIに貼り付けて送信</b> → AIの返答を<b>そのまま全部コピー</b> → 「次へ」で貼り付けてください。</div>
+  </div>
+  <div class="nav"><button class="btn" data-goto="2">← ② 選び直す</button><button class="btn primary" id="toStep4">次へ: ④ AIの返答を取り込む →</button></div>
+</section>
+
+<!-- ==== ④ 返答を取り込む ==== -->
+<section class="step" id="step4">
+  <div class="step-head"><h1>④ AIの返答を貼り付けて、変更内容を確認します</h1><span class="lead">貼った瞬間に解析します。適用するまでファイルは変わりません。</span><button class="help-btn" data-help="4">?</button></div>
+  <div class="help-box hidden" id="help4"></div>
+  <div class="card">
+    <div class="row"><h2 class="grow">AIの返答をそのまま貼り付け</h2><span id="sampleRespBtns" class="hidden"><button class="btn small" id="btnSampleResp">サンプルの返答を貼る</button> <button class="btn small" id="btnSampleRespBad">省略入りの返答例（警告の確認用）</button></span><button class="btn link" id="btnClearResp">クリア</button></div>
+    <textarea id="response" rows="10" placeholder="=== BLOCK: 関数名 === ... === END === の形式、または関数のコードそのもの、またはファイル全文"></textarea>
+  </div>
+  <div class="card" id="parseCard"><div class="empty">返答を貼ると、変更されるブロックが1枚ずつカードで表示されます。<br>緑=置換 / 青=追加 / 赤=削除 / 黄=警告あり</div></div>
+  <div class="card hidden" id="applyCard">
+    <div class="row"><button class="btn primary" id="btnApply">チェックした変更を適用</button><span id="applyInfo" class="muted"></span></div>
+    <div id="applyResult" style="margin-top:10px"></div>
+  </div>
+  <div class="nav"><button class="btn" data-goto="3">← ③ プロンプトに戻る</button><button class="btn primary" id="toStep5">次へ: ⑤ 保存する →</button></div>
+</section>
+
+<!-- ==== ⑤ 保存 ==== -->
+<section class="step" id="step5">
+  <div class="step-head"><h1>⑤ 新しいHTMLをダウンロードして保存します</h1><span class="lead">元のファイルは残ります。ダウンロードしたものを動作確認してから差し替えてください。</span><button class="help-btn" data-help="5">?</button></div>
+  <div class="help-box hidden" id="help5"></div>
+  <div class="card">
+    <h2>今回の変更</h2>
+    <div class="summary" id="summary"></div>
+    <div class="row"><button class="btn primary" id="btnDownload">新しいHTMLをダウンロード</button><span class="mono muted" id="downloadName"></span></div>
+    <div class="note info hidden" id="afterDownload" style="margin-top:10px">ダウンロードしました。<b>ダウンロードしたファイルをブラウザで開いて動作確認</b>し、問題なければ元のファイルと差し替えてください（古い方は日付付きで残しておくと安心です）。</div>
+    <div class="row" style="margin-top:14px"><button class="btn" id="btnContinue">続けて別の修正をする → ②へ</button><button class="btn" id="btnRestart">別のファイルを読み込む → ①へ</button></div>
+  </div>
+  <details class="reuse card"><summary>部品の再利用・書き出し（他のツールで使い回す / 一覧を作る）</summary>
+    <div class="row" style="margin-top:8px">
+      <button class="btn" id="btnExportParts">選択ブロック＋依存を1つのJSに抽出</button>
+      <button class="btn" id="btnExportCatalog">カタログ (Markdown) を書き出す</button>
+      <button class="btn" id="btnExportZip">全ブロックを1ファイルずつ zip で書き出す</button>
+    </div>
+    <p class="muted small">「部品抽出」は ② で選んだブロックと、それが呼んでいる関数をたどって 1 つの .js にまとめます。他のツールに &lt;script src&gt; で読み込むか、貼り付けて使えます。</p>
+  </details>
+  <div class="nav"><button class="btn" data-goto="4">← ④ 取り込みに戻る</button><span></span></div>
+</section>
+
+</main>
+
+<!-- ==== ステータスバー ==== -->
+<footer class="statusbar">
+  <span class="file" id="stFile">ファイル未読込</span>
+  <span class="muted" id="stBlocks"></span>
+  <span class="badge warn hidden" id="stDirty">未保存の変更あり</span>
+  <span class="grow"></span>
+  <button class="btn link" id="btnSettings">⚙ 設定</button>
+  <button class="btn link" id="btnReset">最初からやり直す</button>
+</footer>
+<div id="modalHost"></div>
+<div id="toast"></div>
+
+<script>
+// ==== 定数 ====
+
+// アプリ名とバージョン
+const APP_NAME = 'CodeBlocks';
+const APP_VERSION = '1.0.0';
+
+// localStorage のキー
+const LS_SESSION = 'codeblocks.session.v1';
+const LS_SETTINGS = 'codeblocks.settings.v1';
+
+// 正規表現リテラルの直前に来うるキーワード
+const RE_PREV_KEYWORDS = new Set(['return','typeof','instanceof','in','of','new','delete','void','throw','case','do','else','yield','await']);
+
+// 文の途中で改行しても継続とみなすキーワード（行末側）
+const CONT_AFTER_KEYWORDS = new Set(['else','do','in','of','instanceof','typeof','new','void','delete','throw','case','extends','yield','await','async']);
+
+// 行頭に来たら前の文の続きとみなす記号
+const CONT_BEFORE_PUNC = new Set(['.','(','[',',','?',':','=','+','-','*','/','%','&','|','^','<','>','&&','||','??','?.','=>','==','===','!=','!==','<=','>=','+=','-=','*=','/=','%=','**','<<','>>','>>>','&=','|=','^=','**=','&&=','||=','??=']);
+
+// 文を始めるキーワード（名前を持たない）
+const STMT_KEYWORDS = new Set(['if','for','while','do','switch','try','return','throw','break','continue','import','with','debugger']);
+
+// 長い順に並べた記号
+const PUNCTUATORS = ['>>>=','...','===','!==','**=','<<=','>>=','>>>','&&=','||=','??=','=>','==','!=','<=','>=','&&','||','??','?.','++','--','+=','-=','*=','/=','%=','&=','|=','^=','**','<<','>>','{','}','(',')','[',']',';',',','<','>','+','-','*','/','%','&','|','^','!','~','?',':','=','.','@'];
+
+// 見出しコメントとみなす装飾文字
+const HEADING_DECOR = /[=\-#*─━]{3,}/;
+
+// 省略サインの既定パターン（設定で変更可）
+const DEFAULT_OMISSION_PATTERNS = [
+  '(\\.\\.\\.|…)\\s*(省略|中略|同上|同じ|existing|unchanged|rest|snip)',
+  '(省略|中略|変更なし|同上|以下同|unchanged|existing code|rest of the|omitted|snip)',
+  '^\\s*(//|/\\*|\\*|<!--)?\\s*(\\.\\.\\.|…)\\s*(\\*/|-->)?\\s*$',
+];
+
+// AI に渡す規約の要約
+const RULES_TEXT = [
+  '【コード規約（必ず守ること）】',
+  '- 変更はトップレベル宣言（関数・定数・クラス）の単位で行う。1 つの宣言を丸ごと返す。',
+  '- 返すブロックは省略せず全文を書く。「...省略...」「// 変更なし」「(以下同じ)」は禁止。',
+  '- 変更していないブロックは返さない。',
+  '- 新しい関数が必要なら NEW BLOCK として追加し、どの既存ブロックの後に置くか指定する。',
+  '- 関数名・引数・戻り値の互換性を壊す場合は、呼び出し元も BLOCK として返す。',
+  '- トップレベルの状態は既存の STATE（あれば）に追加する。新しいグローバル変数を増やさない。',
+  '- ES モジュール構文（import/export）は使わない。外部ライブラリの追加は提案にとどめ、コードには入れない。',
+  '- 文字列の中に <\/script> を書かない。',
+  '- 説明文はコードの外（BLOCK の外）に書く。',
+].join('\n');
+
+// AI に渡す返答形式の指示
+const FORMAT_TEXT = [
+  '【返答形式（必ず守ること）】',
+  '変更するブロックごとに、次の封筒で全文を返す:',
+  '=== BLOCK: ブロック名 ===',
+  '（そのブロックの全文。先頭のコメント行も含め、1 行も省略しない）',
+  '=== END ===',
+  '',
+  '新しいブロックを追加するとき:',
+  '=== NEW BLOCK: 新しい名前 | after: 既存のブロック名 ===',
+  '（全文）',
+  '=== END ===',
+  '',
+  'ブロックを削除するとき:',
+  '=== DELETE BLOCK: ブロック名 ===',
+  '',
+  '- 封筒の外に説明を書いてよい。封筒の中にはコードだけを書く（``` は付けなくてよい）。',
+  '- 変更しないブロックは返さない。ファイル全文も返さない。',
+].join('\n');
+
+// 依頼テンプレートの既定値
+const DEFAULT_TEMPLATES = {
+  header: [
+    'あなたは単一 HTML ファイルで作られた業務ツールの改修を手伝う開発者です。',
+    'ファイル名: {{FILE}}',
+    'このファイルは「ブロック（トップレベル宣言）」単位で管理されています。',
+    '以下の規約と返答形式を必ず守ってください。',
+    '',
+    '{{RULES}}',
+    '',
+    '{{FORMAT}}',
+    '',
+  ].join('\n'),
+  kinds: {
+    bugfix: { label: 'バグ修正', hint: '動作がおかしい所を直す', body: [
+      '【依頼】バグ修正', '{{TASK}}', '',
+      '【手順】', '1. まず原因を 3 行以内で説明する。', '2. 修正が必要なブロックだけを BLOCK 形式で全文返す。', '3. 動作確認の手順を 3 行以内で書く。', '',
+      '【対象ブロック】', '{{BLOCKS}}', '',
+      '【関連する関数の署名（参考。変更が必要なら BLOCK で返すこと）】', '{{RELATED}}', '',
+      '{{TOC}}',
+    ].join('\n') },
+    feature: { label: '機能追加', hint: '新しい動きを足す', body: [
+      '【依頼】機能追加', '{{TASK}}', '',
+      '【手順】', '1. 変更方針を 5 行以内で説明する（どのブロックを変え、どの関数を新設するか）。', '2. 変更するブロックは BLOCK 形式で全文、新設する関数は NEW BLOCK 形式で返す。', '3. 既存の関数で再利用できるものは再利用し、同じ役割の関数を新設しない。', '',
+      '【対象ブロック】', '{{BLOCKS}}', '',
+      '【関連する関数の署名】', '{{RELATED}}', '',
+      '{{TOC}}',
+    ].join('\n') },
+    refactor: { label: '整理・リファクタ', hint: '動作を変えずに読みやすく', body: [
+      '【依頼】整理・リファクタ（動作を変えない）', '{{TASK}}', '',
+      '【条件】', '- 外から見た動作・関数名・引数・戻り値は変えない。変える必要がある場合は理由を先に書き、呼び出し元も返す。', '- 長い関数は 30〜150 行の関数に分割し、分割後の関数は NEW BLOCK で返す。', '- 削除してよい関数があれば DELETE BLOCK で示す。', '',
+      '【対象ブロック】', '{{BLOCKS}}', '',
+      '【関連する関数の署名】', '{{RELATED}}', '',
+      '{{TOC}}',
+    ].join('\n') },
+    newpart: { label: '新しい部品を作る', hint: '他でも使い回せる関数群', body: [
+      '【依頼】新しい部品（関数群）の新設', '{{TASK}}', '',
+      '【条件】', '- 既存コードに依存しない、引数と戻り値だけで完結する関数として作る（他ツールでも再利用するため）。', '- 各関数の直前に 1 行コメントで役割を書く。', '- すべて NEW BLOCK 形式で返す。after には {{ANCHOR}} を指定する。', '',
+      '{{TOC}}', '',
+      '【参考: 関連する既存関数の署名】', '{{RELATED}}',
+    ].join('\n') },
+    explain: { label: '説明してほしい', hint: 'コードは変えない', body: [
+      '【依頼】コードの説明', '{{TASK}}', '',
+      '以下のブロックについて、役割・入力・出力・副作用・呼び出し関係を日本語で説明してください。', 'コードは返さないでください。', '',
+      '【対象ブロック】', '{{BLOCKS}}', '',
+      '【関連する関数の署名】', '{{RELATED}}',
+    ].join('\n') },
+  },
+  full: [
+    '【依頼】', '{{TASK}}', '',
+    '【条件】', '- 以下にファイル全文を示す。変更が必要なブロック**だけ**を BLOCK 形式で全文返す。ファイル全文は返さない。', '- 変更していないブロックは返さない。', '',
+    '【ファイル全文】', '{{FULL}}',
+  ].join('\n'),
+  reask: [
+    '先ほどの返答に省略（「...省略...」「変更なし」など）が含まれていました。',
+    '次のブロックを、1 行も省略せずに全文で返してください。説明は不要です。',
+    '',
+    '対象: {{NAMES}}',
+  ].join('\n'),
+};
+
+// 各画面のヘルプ
+const HELP_TEXT = {
+  1: '<h3>この画面でやること</h3>本体の HTML ファイルを読み込みます。ファイルは書き換えません。<ul><li>読み込むと、関数などの「ひとかたまり（ブロック）」に自動で分けます。本体にマーカーを入れる必要はありません。</li><li>「復元チェック: OK」= 分けたブロックをつなぎ直すと元と 1 文字違わず一致する、という確認です。</li><li>「一部を粗く分けました」と出ても差し替えは可能です（一覧が粗くなるだけ）。</li></ul><h3>よくある失敗</h3><ul><li>ライブラリの .js を読み込んでしまう → 本体の .html を選んでください。</li></ul>',
+  2: '<h3>この画面でやること</h3>AI に直してほしい関数にチェックを入れます。<ul><li>検索で絞り込めます（関数名・コメントの一部）。</li><li>右側に選んだ関数のコードと「呼んでいる / 呼ばれている」関数が出ます。チップをクリックすると一覧でその関数に移動します。</li><li>「AI に渡す範囲」の文字数を見て、多すぎなければ次へ。関連関数は「署名だけ」渡すのが基本です。</li></ul><h3>よくある失敗</h3><ul><li>何も選ばずに次へ → 「新しい部品を作る」以外はブロックの選択が必要です。</li><li>選びすぎて文字数が膨らむ → 1 回の依頼は 1 目的に絞ります。</li></ul>',
+  3: '<h3>この画面でやること</h3>「やりたいこと」を書き、依頼の種類を選ぶだけでプロンプトが出来上がります。<ul><li>規約・返答形式・関連関数の署名・目次は自動で付きます。</li><li>「プロンプトをコピー」→ 社内 AI に貼り付け → 返答を<b>そのまま全部</b>コピーして次の画面へ。</li></ul><h3>よくある失敗</h3><ul><li>AI の返答の一部だけをコピーする → 封筒（=== BLOCK ... === END ===）が欠けると取り込めません。全部コピーしてください。</li></ul>',
+  4: '<h3>この画面でやること</h3>AI の返答を貼ると、変更されるブロックがカードで出ます。差分を見て、チェックしたものだけ適用します。<ul><li>緑=置換、青=追加、赤=削除、黄=警告あり。</li><li>「⚠ 省略サイン」が出たら、そのカードの「再依頼プロンプトをコピー」で AI に全文を返してもらい、貼り直します。</li><li>適用後に構文チェックが走ります。エラーなら「適用を取り消す」で戻せます（直前 1 回分）。</li></ul><h3>よくある失敗</h3><ul><li>封筒も ``` も無いコードだけの返答 → 関数名で既存と突き合わせて取り込みます。名前が違うと「追加」扱いになります。</li><li>ファイル全文が返ってきた → そのまま貼れば、ブロック単位の差分に変換します。</li></ul>',
+  5: '<h3>この画面でやること</h3>変更後の HTML をダウンロードします。元のファイルは残ります。<ul><li>ファイル名には日時が付きます。開いて動作確認してから元のファイルと差し替えてください。</li><li>「部品の再利用・書き出し」で、選んだ関数＋依存を 1 つの JS に抽出したり、全ブロックの一覧（カタログ）を作れます。</li></ul>',
+};
+
+// ==== 状態 ====
+
+// アプリ全体の状態（ここ以外にトップレベル変数を置かない）
+const STATE = {
+  step: 1,
+  fileName: '',
+  doc: null,          // parseDocument の結果
+  originalSrc: '',    // 読み込み時の全文
+  prevSrc: null,      // 直前の適用前の全文（取り消し用）
+  selected: new Set(),// 選択中ブロックのキー
+  activeKey: null,    // 詳細表示中のブロック
+  includeRelatedBody: false,
+  task: '',
+  kind: 'bugfix',
+  parsed: null,       // parseResponse の結果
+  lastApply: null,    // 直近の適用サマリ {replace, add, delete}
+  dirty: false,
+  isSample: false,
+  settings: null,
+  helpOpen: {},
+};
+
+// ==== JS トークナイザ ====
+
+// 識別子の先頭に使える文字か
+function isIdStart(code) {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122) || code === 36 || code === 95 ||
+    (code >= 128 && code !== 0x00a0 && code !== 0x3000 && code !== 0x2028 && code !== 0x2029 && code !== 0xfeff);
+}
+
+// 識別子の 2 文字目以降に使える文字か
+function isIdPart(code) {
+  return isIdStart(code) || (code >= 48 && code <= 57);
+}
+
+// 数字か
+function isDigit(code) {
+  return code >= 48 && code <= 57;
+}
+
+// 空白・改行・コメントか
+function isTrivia(t) {
+  return t.type === 'ws' || t.type === 'nl' || t.type === 'comment';
+}
+
+// 直前の有意トークンから見て、ここで正規表現リテラルが始まりうるか
+function jsRegexAllowed(prev) {
+  if (!prev) return true;
+  if (prev.type === 'punc') return !(prev.value === ')' || prev.value === ']' || prev.value === '++' || prev.value === '--');
+  if (prev.type === 'id') return RE_PREV_KEYWORDS.has(prev.value);
+  return false;
+}
+
+// 正規表現リテラルの終端位置を返す（失敗なら -1）
+function scanJsRegex(src, pos) {
+  let e = pos + 1, inClass = false;
+  while (e < src.length) {
+    const d = src[e];
+    if (d === '\\') { e += 2; continue; }
+    if (d === '\n' || d === '\r') return -1;
+    if (inClass) { if (d === ']') inClass = false; }
+    else if (d === '[') inClass = true;
+    else if (d === '/') {
+      e++;
+      while (e < src.length && isIdPart(src.charCodeAt(e))) e++;
+      return e;
+    }
+    e++;
+  }
+  return -1;
+}
+
+// テンプレートリテラルを 1 トークンとして読む（${} 内のトークンは inner に集める）
+function scanJsTemplate(src, pos) {
+  let e = pos + 1;
+  const inner = [];
+  while (e < src.length) {
+    const d = src[e];
+    if (d === '\\') { e += 2; continue; }
+    if (d === '`') { e++; return { type: 'tpl', start: pos, end: e, inner }; }
+    if (d === '$' && src[e + 1] === '{') {
+      e += 2;
+      let depth = 0, prev = null;
+      while (e < src.length) {
+        const t = scanJsToken(src, e, prev);
+        if (t.type === 'punc') {
+          if (t.value === '(' || t.value === '[' || t.value === '{') depth++;
+          else if (t.value === ')' || t.value === ']' || t.value === '}') {
+            if (t.value === '}' && depth === 0) { e = t.end; break; }
+            depth--;
+          }
+        }
+        if (!isTrivia(t)) { prev = t; inner.push(t); }
+        e = t.end;
+      }
+      continue;
+    }
+    e++;
+  }
+  return { type: 'tpl', start: pos, end: src.length, inner };
+}
+
+// 位置 pos から 1 トークン読む
+function scanJsToken(src, pos, prev) {
+  const ch = src[pos];
+  const code = src.charCodeAt(pos);
+  if (ch === '\n') return { type: 'nl', start: pos, end: pos + 1 };
+  if (ch === '\r') return { type: 'nl', start: pos, end: src[pos + 1] === '\n' ? pos + 2 : pos + 1 };
+  if (ch === ' ' || ch === '\t' || ch === '\f' || ch === '\v' || ch === '\u00a0' || ch === '\u3000' || ch === '\ufeff' || ch === '\u2028' || ch === '\u2029') {
+    let e = pos + 1;
+    while (e < src.length && ' \t\f\v\u00a0\u3000\ufeff\u2028\u2029'.includes(src[e])) e++;
+    return { type: 'ws', start: pos, end: e };
+  }
+  if (ch === '/' && src[pos + 1] === '/') {
+    let e = pos + 2;
+    while (e < src.length && src[e] !== '\n' && src[e] !== '\r') e++;
+    return { type: 'comment', start: pos, end: e };
+  }
+  if (ch === '/' && src[pos + 1] === '*') {
+    let e = src.indexOf('*/', pos + 2);
+    e = e < 0 ? src.length : e + 2;
+    return { type: 'comment', start: pos, end: e };
+  }
+  if (ch === '"' || ch === "'") {
+    let e = pos + 1;
+    while (e < src.length) {
+      const d = src[e];
+      if (d === '\\') { e += 2; continue; }
+      if (d === ch) { e++; break; }
+      if (d === '\n') break;
+      e++;
+    }
+    return { type: 'str', start: pos, end: e };
+  }
+  if (ch === '`') return scanJsTemplate(src, pos);
+  if (isDigit(code) || (ch === '.' && isDigit(src.charCodeAt(pos + 1)))) {
+    let e = pos + 1;
+    const isHex = /^0[xXbBoO]/.test(src.slice(pos, pos + 2));
+    while (e < src.length) {
+      const d = src[e];
+      if (isIdPart(src.charCodeAt(e)) || d === '.') e++;
+      else if ((d === '+' || d === '-') && !isHex && (src[e - 1] === 'e' || src[e - 1] === 'E')) e++;
+      else break;
+    }
+    return { type: 'num', start: pos, end: e };
+  }
+  if (isIdStart(code) || ch === '\\' || (ch === '#' && isIdStart(src.charCodeAt(pos + 1)))) {
+    let e = pos + 1;
+    while (e < src.length && (isIdPart(src.charCodeAt(e)) || src[e] === '\\')) e++;
+    return { type: 'id', start: pos, end: e, value: src.slice(pos, e) };
+  }
+  if (ch === '/' && jsRegexAllowed(prev)) {
+    const e = scanJsRegex(src, pos);
+    if (e > 0) return { type: 're', start: pos, end: e };
+  }
+  for (const p of PUNCTUATORS) {
+    if (src.startsWith(p, pos)) return { type: 'punc', start: pos, end: pos + p.length, value: p };
+  }
+  return { type: 'punc', start: pos, end: pos + 1, value: ch };
+}
+
+// JS 全体をトークン列にする
+function tokenizeJs(src) {
+  const toks = [];
+  let pos = 0, prev = null;
+  while (pos < src.length) {
+    const t = scanJsToken(src, pos, prev);
+    if (t.end <= pos) { t.end = pos + 1; }
+    toks.push(t);
+    if (!isTrivia(t)) prev = t;
+    pos = t.end;
+  }
+  return toks;
+}
+
+// ==== JS トップレベル分割 ====
+
+// 行末のトークンから見て、次の行が同じ文の続きか
+function continuesAfter(t) {
+  if (!t) return false;
+  if (t.type === 'punc') return !(t.value === ')' || t.value === ']' || t.value === '}' || t.value === ';' || t.value === '++' || t.value === '--');
+  if (t.type === 'id') return CONT_AFTER_KEYWORDS.has(t.value);
+  return false;
+}
+
+// 行頭のトークンから見て、前の行の文の続きか
+function continuesBefore(t, startKw) {
+  if (!t) return false;
+  if (t.type === 'punc') return CONT_BEFORE_PUNC.has(t.value);
+  if (t.type === 'tpl') return true;
+  if (t.type === 'id') {
+    return t.value === 'else' || t.value === 'catch' || t.value === 'finally' || t.value === 'in' || t.value === 'of' ||
+      t.value === 'instanceof' || (t.value === 'while' && startKw === 'do');
+  }
+  return false;
+}
+
+// 文の続きになる後続キーワードか（else / catch / finally / do-while の while）
+function isChainKeyword(t, startKw) {
+  return t && t.type === 'id' && (t.value === 'else' || t.value === 'catch' || t.value === 'finally' || (t.value === 'while' && startKw === 'do'));
+}
+
+// toks[j] から始まる 1 文を読み、文の終わり（排他的インデックス）を返す
+function consumeJsStatement(toks, j) {
+  const n = toks.length;
+  const sig = (k) => { while (k < n && isTrivia(toks[k])) k++; return k < n ? k : -1; };
+  const hasNlBetween = (a, b) => { for (let k = a + 1; k < b; k++) if (toks[k].type === 'nl') return true; return false; };
+  const finish = (k) => {
+    k++;
+    while (k < n && (toks[k].type === 'ws' || toks[k].type === 'comment')) k++;
+    if (k < n && toks[k].type === 'nl') k++;
+    return k;
+  };
+  let k = j;
+  if (toks[k].type === 'id' && toks[k].value === 'export') {
+    const k2 = sig(k + 1);
+    if (k2 > 0) { k = k2; if (toks[k].type === 'id' && toks[k].value === 'default') { const k3 = sig(k + 1); if (k3 > 0) k = k3; } }
+  }
+  if (toks[k].type === 'id' && toks[k].value === 'async') {
+    const k2 = sig(k + 1);
+    if (k2 > 0 && toks[k2].type === 'id' && toks[k2].value === 'function') k = k2;
+  }
+  const kw = toks[k].type === 'id' ? toks[k].value : null;
+  if (kw === 'function' || kw === 'class') {
+    let depth = 0, k2 = k;
+    for (; k2 < n; k2++) {
+      const u = toks[k2];
+      if (u.type !== 'punc') continue;
+      if (u.value === '(' || u.value === '[' || u.value === '{') depth++;
+      else if (u.value === ')' || u.value === ']' || u.value === '}') { depth--; if (u.value === '}' && depth === 0) break; }
+    }
+    if (k2 >= n) return n;
+    const k3 = sig(k2 + 1);
+    if (k3 > 0 && toks[k3].type === 'punc' && toks[k3].value === ';' && !hasNlBetween(k2, k3)) return finish(k3);
+    return finish(k2);
+  }
+  const startKw = kw;
+  let depth = 0, expectBody = false, headerKw = null, prevSig = null;
+  for (k = j; k < n; k++) {
+    const t = toks[k];
+    if (t.type === 'nl') {
+      if (depth > 0) continue;
+      const nx = sig(k + 1);
+      if (nx < 0) return k + 1;
+      if (expectBody) continue;
+      if (continuesAfter(prevSig) || continuesBefore(toks[nx], startKw)) continue;
+      return k + 1;
+    }
+    if (t.type === 'ws' || t.type === 'comment') continue;
+    if (t.type === 'punc') {
+      const v = t.value;
+      if (v === '(' || v === '[' || v === '{') {
+        if (v === '{' && depth === 0) expectBody = false;
+        depth++;
+      } else if (v === ')' || v === ']' || v === '}') {
+        depth = Math.max(0, depth - 1);
+        if (depth === 0) {
+          if (v === ')' && headerKw) { headerKw = null; expectBody = true; prevSig = t; continue; }
+          if (v === '}') {
+            const nx = sig(k + 1);
+            if (nx < 0) return finish(k);
+            const u = toks[nx];
+            if (isChainKeyword(u, startKw)) { prevSig = t; continue; }
+            if (u.type === 'punc' && u.value === ';' && !hasNlBetween(k, nx)) return finish(nx);
+            if (hasNlBetween(k, nx)) return finish(k);
+            if (continuesBefore(u, startKw)) { prevSig = t; continue; }
+            return finish(k);
+          }
+        }
+      } else if (v === ';' && depth === 0) {
+        const nx = sig(k + 1);
+        if (nx > 0 && isChainKeyword(toks[nx], startKw)) { prevSig = t; continue; }
+        return finish(k);
+      }
+      prevSig = t;
+      continue;
+    }
+    if (t.type === 'id' && depth === 0) {
+      if (t.value === 'if' || t.value === 'for' || t.value === 'while' || t.value === 'with') { headerKw = t.value; expectBody = false; prevSig = t; continue; }
+      if (t.value === 'else' || t.value === 'do') { expectBody = true; prevSig = t; continue; }
+    }
+    if (expectBody && depth === 0) expectBody = false;
+    prevSig = t;
+  }
+  return n;
+}
+
+// 文の種類と名前を判定する
+function classifyJsStatement(toks, j, endIdx) {
+  const sig = (k) => { while (k < endIdx && isTrivia(toks[k])) k++; return k < endIdx ? k : -1; };
+  let k = j;
+  let exported = false;
+  if (toks[k].type === 'id' && toks[k].value === 'export') {
+    exported = true;
+    k = sig(k + 1);
+    if (k > 0 && toks[k].type === 'id' && toks[k].value === 'default') k = sig(k + 1);
+    if (k < 0) return { kind: 'stmt', name: null, exported };
+  }
+  let cur = toks[k];
+  if (cur.type === 'id' && cur.value === 'async') {
+    const k2 = sig(k + 1);
+    if (k2 > 0 && toks[k2].type === 'id' && toks[k2].value === 'function') { k = k2; cur = toks[k]; }
+  }
+  if (cur.type === 'id' && (cur.value === 'function' || cur.value === 'class')) {
+    let k2 = sig(k + 1);
+    if (k2 > 0 && toks[k2].type === 'punc' && toks[k2].value === '*') k2 = sig(k2 + 1);
+    if (k2 > 0 && toks[k2].type === 'id') return { kind: cur.value, name: toks[k2].value, exported };
+    return { kind: cur.value, name: null, exported };
+  }
+  if (cur.type === 'id' && (cur.value === 'const' || cur.value === 'let' || cur.value === 'var')) {
+    const k2 = sig(k + 1);
+    if (k2 < 0) return { kind: 'var', name: null, decl: cur.value, exported };
+    if (toks[k2].type === 'id') return { kind: 'var', name: toks[k2].value, decl: cur.value, exported };
+    let depth = 0;
+    const parts = [];
+    for (let m = k2; m < endIdx; m++) {
+      const u = toks[m];
+      if (isTrivia(u)) continue;
+      if (u.type === 'punc') {
+        if (u.value === '(' || u.value === '[' || u.value === '{') depth++;
+        else if (u.value === ')' || u.value === ']' || u.value === '}') depth--;
+        else if (u.value === '=' && depth === 0) break;
+      }
+      parts.push(u.type === 'id' ? u.value : (u.value || ''));
+    }
+    return { kind: 'var', name: parts.join('').replace(/,/g, ', ').slice(0, 40), decl: cur.value, exported };
+  }
+  if (cur.type === 'id' && STMT_KEYWORDS.has(cur.value)) return { kind: 'stmt', name: null, exported };
+  if (cur.type === 'id') {
+    const path = [cur.value];
+    let m = sig(k + 1);
+    while (m > 0 && toks[m].type === 'punc' && toks[m].value === '.') {
+      const m2 = sig(m + 1);
+      if (m2 < 0 || toks[m2].type !== 'id') break;
+      path.push(toks[m2].value);
+      m = sig(m2 + 1);
+    }
+    if (m > 0 && toks[m].type === 'punc' && toks[m].value === '=') return { kind: 'assign', name: path.join('.'), exported };
+    if (m > 0 && toks[m].type === 'punc' && toks[m].value === '(') return { kind: 'stmt', name: null, call: path.join('.'), exported };
+  }
+  return { kind: 'stmt', name: null, exported };
+}
+
+// JS ソースをトップレベル文に分割する（連結すると元に戻る）
+function splitJsTopLevel(src) {
+  const toks = tokenizeJs(src);
+  const n = toks.length;
+  const out = [];
+  let i = 0;
+  while (i < n) {
+    let j = i;
+    while (j < n && isTrivia(toks[j])) j++;
+    if (j >= n) {
+      if (out.length) { out[out.length - 1].end = src.length; out[out.length - 1].tokens.push(...toks.slice(i)); }
+      else out.push({ start: 0, end: src.length, sigStart: src.length, kind: 'trivia', name: null, tokens: toks.slice(i) });
+      break;
+    }
+    const endIdx = Math.max(j + 1, consumeJsStatement(toks, j));
+    const stmt = { start: toks[i].start, end: toks[endIdx - 1].end, sigStart: toks[j].start, tokens: toks.slice(i, endIdx) };
+    Object.assign(stmt, classifyJsStatement(toks, j, endIdx));
+    out.push(stmt);
+    i = endIdx;
+  }
+  for (const s of out) s.text = src.slice(s.start, s.end);
+  return out;
+}
+
+// ==== HTML 分割 ====
+
+// 改行コードを判定する
+function detectEol(src) {
+  return src.includes('\r\n') ? '\r\n' : '\n';
+}
+
+// HTML を <script> / <style> / それ以外 のセグメントに分ける
+function segmentHtml(src) {
+  const segs = [];
+  const looksHtml = /<(script|style|html|head|body|div|!doctype|meta|title)\b/i.test(src);
+  if (!looksHtml) {
+    segs.push({ type: 'script', open: '', close: '', body: src, attrs: '' });
+    return segs;
+  }
+  const re = /<(script|style)\b([^>]*)>/gi;
+  let pos = 0, m;
+  while ((m = re.exec(src))) {
+    const tag = m[1].toLowerCase();
+    const attrs = m[2] || '';
+    const openEnd = m.index + m[0].length;
+    const closeRe = new RegExp('<\\/' + tag + '\\s*>', 'ig');
+    closeRe.lastIndex = openEnd;
+    const c = closeRe.exec(src);
+    const bodyEnd = c ? c.index : src.length;
+    const closeEnd = c ? c.index + c[0].length : src.length;
+    if (m.index > pos) segs.push({ type: 'html', open: '', close: '', body: src.slice(pos, m.index), attrs: '' });
+    let type = tag;
+    if (tag === 'script') {
+      const typeM = /\btype\s*=\s*["']?([^"'\s>]+)/i.exec(attrs);
+      const t = typeM ? typeM[1].toLowerCase() : '';
+      if (/\bsrc\s*=/i.test(attrs)) type = 'frozen';
+      else if (t && !/(javascript|ecmascript|module|jsx)/.test(t)) type = 'text';
+    }
+    segs.push({ type, open: src.slice(m.index, openEnd), close: src.slice(bodyEnd, closeEnd), body: src.slice(openEnd, bodyEnd), attrs });
+    pos = closeEnd;
+    re.lastIndex = closeEnd;
+  }
+  if (pos < src.length) segs.push({ type: 'html', open: '', close: '', body: src.slice(pos), attrs: '' });
+  return segs;
+}
+
+// 見出しコメント行なら見出し文字列を返す（違えば null）
+function headingOf(line, lang) {
+  const s = line.trim();
+  if (!HEADING_DECOR.test(s)) return null;
+  let inner = null;
+  if (lang === 'html') {
+    if (!s.startsWith('<!--')) return null;
+    inner = s.replace(/^<!--/, '').replace(/-->$/, '');
+  } else {
+    if (!(s.startsWith('//') || s.startsWith('/*'))) return null;
+    inner = s.replace(/^\/\/+/, '').replace(/^\/\*+/, '').replace(/\*+\/$/, '');
+  }
+  const title = inner.replace(/[=\-#*─━]{3,}/g, ' ').replace(/\s+/g, ' ').trim();
+  return title || '(無題)';
+}
+
+// 見出しコメントで粗く分ける（HTML / CSS 用）。連結すると元に戻る
+function splitByHeadings(body, lang) {
+  const lines = body.split(/(?<=\n)/);
+  const out = [];
+  let cur = { text: '', heading: null };
+  for (const line of lines) {
+    const h = headingOf(line, lang);
+    if (h !== null && cur.text.trim() !== '') { out.push(cur); cur = { text: '', heading: h }; }
+    else if (h !== null && cur.heading === null) cur.heading = h;
+    cur.text += line;
+  }
+  if (cur.text !== '' || out.length === 0) out.push(cur);
+  return out;
+}
+
+// ==== ブロック命名・依存 ====
+
+// 先頭トリビア（コメント）から見出しと役割コメントを取り出す
+function extractComments(text, sigOffset) {
+  const lead = text.slice(0, sigOffset);
+  let section = null;
+  const roleLines = [];
+  let lastWasComment = false;
+  const lines = lead.split(/\r?\n/);
+  if (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+  for (const raw of lines) {
+    const s = raw.trim();
+    if (s === '') { if (lastWasComment) { roleLines.length = 0; } lastWasComment = false; continue; }
+    const h = headingOf(s, 'js');
+    if (h !== null) { section = h; roleLines.length = 0; lastWasComment = false; continue; }
+    if (s.startsWith('//') || s.startsWith('/*') || s.startsWith('*')) {
+      const c = s.replace(/^\/\/+/, '').replace(/^\/\*+/, '').replace(/^\*+\/?/, '').replace(/\*+\/$/, '').trim();
+      if (c) roleLines.push(c);
+      lastWasComment = true;
+    }
+  }
+  return { section, role: roleLines[0] || '' };
+}
+
+// 文の署名（1 行要約）を作る
+function makeSignature(stmt) {
+  const code = stmt.text.slice(stmt.sigStart - stmt.start);
+  if (stmt.kind === 'function' || stmt.kind === 'class') {
+    const i = code.indexOf('{');
+    const head = (i > 0 ? code.slice(0, i) : code.split(/\r?\n/)[0]).replace(/\s+/g, ' ').trim();
+    return head.slice(0, 120);
+  }
+  const first = code.split(/\r?\n/)[0].replace(/\s+/g, ' ').trim();
+  return first.slice(0, 100);
+}
+
+// ブロックのキーを一意にする
+function uniqueKey(base, used) {
+  let key = base, i = 2;
+  while (used.has(key)) key = base + '#' + (i++);
+  used.add(key);
+  return key;
+}
+
+// JS セグメントをブロック列にする
+function buildJsBlocks(seg, used, counters) {
+  const stmts = splitJsTopLevel(seg.body);
+  const blocks = [];
+  let section = null;
+  for (const s of stmts) {
+    const cm = extractComments(s.text, s.sigStart - s.start);
+    if (cm.section) section = cm.section;
+    const code = s.text.slice(s.sigStart - s.start);
+    const firstLine = code.split(/\r?\n/)[0].replace(/\s+/g, ' ').trim();
+    let name = s.name;
+    let display = s.name;
+    if (s.kind === 'trivia') { name = 'trivia#' + (++counters.trivia); display = '(コメント・空行のみ)'; }
+    else if (!name) { name = 'stmt#' + (++counters.stmt); display = firstLine.slice(0, 60); }
+    const key = uniqueKey(name, used);
+    blocks.push({
+      key, name: key, display: display === key ? null : display, kind: s.kind, lang: 'js',
+      text: s.text, sigOffset: s.sigStart - s.start, section, role: cm.role,
+      sig: makeSignature(s), tokens: s.tokens, lines: countLines(s.text.slice(s.sigStart - s.start)),
+      calls: [], calledBy: [], frozen: false,
+    });
+  }
+  return blocks;
+}
+
+// HTML / CSS セグメントをブロック列にする
+function buildTextBlocks(seg, used, counters, lang) {
+  const parts = splitByHeadings(seg.body, lang);
+  const blocks = [];
+  for (const p of parts) {
+    const base = p.heading ? (lang + ': ' + p.heading) : (lang + '#' + (++counters[lang]));
+    const key = uniqueKey(base, used);
+    const firstLine = (p.text.split(/\r?\n/).find(l => l.trim() !== '') || '').trim();
+    blocks.push({
+      key, name: key, display: p.heading ? null : firstLine.slice(0, 60), kind: lang, lang,
+      text: p.text, sigOffset: 0, section: p.heading, role: '', sig: firstLine.slice(0, 100), tokens: null,
+      lines: countLines(p.text), calls: [], calledBy: [], frozen: false,
+    });
+  }
+  return blocks;
+}
+
+// 行数を数える
+function countLines(text) {
+  const t = text.replace(/\s+$/, '');
+  if (t === '') return 0;
+  return t.split(/\r?\n/).length;
+}
+
+// トークン列から参照している識別子を集める（プロパティ名は除く）
+function collectIdentifiers(tokens, out) {
+  let prev = null;
+  for (const t of tokens) {
+    if (isTrivia(t)) continue;
+    if (t.type === 'id') {
+      if (!(prev && prev.type === 'punc' && (prev.value === '.' || prev.value === '?.'))) out.add(t.value);
+    } else if (t.type === 'tpl' && t.inner) {
+      collectIdentifiers(t.inner, out);
+    }
+    prev = t;
+  }
+  return out;
+}
+
+// 依存関係（呼ぶ / 呼ばれる）を計算する
+function computeDependencies(blocks) {
+  const jsNames = new Map();
+  for (const b of blocks) if (b.lang === 'js' && (b.kind === 'function' || b.kind === 'class' || b.kind === 'var' || b.kind === 'assign')) jsNames.set(b.key, b);
+  const regexCache = new Map();
+  for (const b of blocks) {
+    const found = new Set();
+    if (b.lang === 'js' && b.tokens) {
+      const ids = collectIdentifiers(b.tokens, new Set());
+      for (const id of ids) if (id !== b.key && jsNames.has(id)) found.add(id);
+    } else if (b.lang === 'html') {
+      for (const [name] of jsNames) {
+        if (name.length < 2 || name === b.key) continue;
+        let re = regexCache.get(name);
+        if (!re) { re = new RegExp('(^|[^\\w$.])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*\\('); regexCache.set(name, re); }
+        if (re.test(b.text)) found.add(name);
+      }
+    }
+    b.calls = [...found];
+  }
+  const byKey = new Map(blocks.map(b => [b.key, b]));
+  for (const b of blocks) for (const c of b.calls) { const t = byKey.get(c); if (t) t.calledBy.push(b.key); }
+}
+
+// ファイル全文を解析して文書オブジェクトにする
+function parseDocument(src) {
+  const eol = detectEol(src);
+  const segments = segmentHtml(src);
+  const used = new Set();
+  const counters = { stmt: 0, trivia: 0, html: 0, css: 0, text: 0, frozen: 0 };
+  const blocks = [];
+  for (const seg of segments) {
+    let segBlocks;
+    if (seg.type === 'script') segBlocks = buildJsBlocks(seg, used, counters);
+    else if (seg.type === 'style') segBlocks = buildTextBlocks(seg, used, counters, 'css');
+    else if (seg.type === 'html') segBlocks = buildTextBlocks(seg, used, counters, 'html');
+    else {
+      const srcM = /\bsrc\s*=\s*["']?([^"'\s>]+)/i.exec(seg.attrs || '');
+      const base = seg.type === 'frozen' ? ('lib: ' + (srcM ? srcM[1] : 'external')) : ('text#' + (++counters.text));
+      const key = uniqueKey(base, used);
+      segBlocks = [{ key, name: key, display: null, kind: seg.type === 'frozen' ? 'frozen' : 'text', lang: seg.type, text: seg.body, sigOffset: 0, section: null, role: '', sig: (seg.open || '').slice(0, 100), tokens: null, lines: countLines(seg.body), calls: [], calledBy: [], frozen: true }];
+    }
+    seg.blocks = segBlocks;
+    for (const b of segBlocks) { b.seg = seg; blocks.push(b); }
+  }
+  computeDependencies(blocks);
+  blocks.forEach((b, i) => { b.index = i; });
+  const doc = { src, eol, segments, blocks, byKey: new Map(blocks.map(b => [b.key, b])) };
+  doc.roundTrip = joinDocument(doc) === src;
+  return doc;
+}
+
+// 文書オブジェクトを全文に戻す
+function joinDocument(doc) {
+  let out = '';
+  for (const seg of doc.segments) {
+    out += seg.open;
+    for (const b of seg.blocks) out += b.text;
+    out += seg.close;
+  }
+  return out;
+}
+
+// 主となる（最も大きい）インライン script セグメントを返す
+function mainScriptSegment(doc) {
+  let best = null;
+  for (const seg of doc.segments) if (seg.type === 'script' && (!best || seg.body.length > best.body.length)) best = seg;
+  return best;
+}
+
+// ブロックの本文（先頭のコメント含む、前後の空行を除く）
+function blockCode(b) {
+  return b.text.replace(/^(\s*\r?\n)+/, '').replace(/\s+$/, '');
+}
+
+// ==== 応答パーサ ====
+
+// 省略サインの正規表現を組み立てる
+function omissionRegexes(patterns) {
+  const out = [];
+  for (const p of patterns || DEFAULT_OMISSION_PATTERNS) {
+    if (!p || !p.trim()) continue;
+    try { out.push(new RegExp(p, 'i')); } catch (e) { /* 不正なパターンは無視 */ }
+  }
+  return out;
+}
+
+// コードの中の省略サインを探す（行番号の配列）
+function findOmissions(code, regexes) {
+  const hits = [];
+  const lines = code.split(/\r?\n/);
+  lines.forEach((line, i) => {
+    const s = line.trim();
+    const isComment = /^(\/\/|\/\*|\*|<!--)/.test(s);
+    for (const re of regexes) {
+      if (re.test(s) && (isComment || re.source.startsWith('^'))) { hits.push(i + 1); break; }
+    }
+  });
+  return hits;
+}
+
+// 封筒形式の返答を解析する（見つからなければ null）
+function parseEnvelopes(text) {
+  const lines = text.split(/\r?\n/);
+  const startRe = /^\s*(?:```\w*\s*)?===\s*(BLOCK|NEW BLOCK|DELETE BLOCK)\s*:\s*(.+?)\s*===\s*(?:```)?\s*$/i;
+  const endRe = /^\s*(?:```\s*)?===\s*END\s*===\s*(?:```)?\s*$/i;
+  const items = [];
+  let cur = null;
+  for (const line of lines) {
+    const m = startRe.exec(line);
+    if (m && !cur) {
+      const head = m[2];
+      let name = head, after = null;
+      const parts = head.split('|');
+      if (parts.length > 1) {
+        name = parts[0].trim();
+        for (const p of parts.slice(1)) { const am = /after\s*[:：]\s*(.+)/i.exec(p); if (am) after = am[1].trim(); }
+      }
+      const type = m[1].toUpperCase();
+      const action = type === 'BLOCK' ? 'replace' : type === 'NEW BLOCK' ? 'add' : 'delete';
+      if (action === 'delete') { items.push({ action, name, after: null, code: '' }); continue; }
+      cur = { action, name, after, lines: [] };
+      continue;
+    }
+    if (cur && endRe.test(line)) {
+      let body = cur.lines;
+      if (body.length && /^\s*```/.test(body[0])) body = body.slice(1);
+      if (body.length && /^\s*```\s*$/.test(body[body.length - 1])) body = body.slice(0, -1);
+      items.push({ action: cur.action, name: cur.name, after: cur.after, code: body.join('\n') });
+      cur = null;
+      continue;
+    }
+    if (cur) cur.lines.push(line);
+  }
+  if (cur) items.push({ action: cur.action, name: cur.name, after: cur.after, code: cur.lines.join('\n'), unterminated: true });
+  return items.length ? items : null;
+}
+
+// コードフェンスの中身を取り出す（無ければ全文）
+function extractFences(text) {
+  const re = /```[\w-]*[ \t]*\r?\n([\s\S]*?)```/g;
+  const parts = [];
+  let m;
+  while ((m = re.exec(text))) parts.push(m[1]);
+  return parts.length ? parts.join('\n\n') : text;
+}
+
+// 封筒なしの返答（コードそのもの）を解析する
+function parseBareCode(text, doc) {
+  const code = extractFences(text);
+  const stmts = splitJsTopLevel(code);
+  const items = [];
+  let unnamed = 0;
+  for (const s of stmts) {
+    if (s.kind === 'trivia') continue;
+    if (!s.name) { unnamed++; continue; }
+    const exists = doc && doc.byKey.has(s.name);
+    items.push({ action: exists ? 'replace' : 'add', name: s.name, after: null, code: s.text.replace(/^(\s*\r?\n)+/, '').replace(/\s+$/, '') });
+  }
+  return { items, unnamed };
+}
+
+// 全文 HTML の返答をブロック差分に変換する
+function parseFullFile(text, doc) {
+  const doc2 = parseDocument(text);
+  const items = [];
+  const norm = (s) => s.replace(/\r\n/g, '\n').replace(/\s+$/, '');
+  let prevKey = null;
+  for (const b of doc2.blocks) {
+    const old = doc.byKey.get(b.key);
+    if (b.kind === 'trivia' || b.frozen) { prevKey = old ? b.key : prevKey; continue; }
+    if (!old) items.push({ action: 'add', name: b.key, after: prevKey, code: blockCode(b) });
+    else if (norm(old.text) !== norm(b.text)) items.push({ action: 'replace', name: b.key, after: null, code: blockCode(b) });
+    prevKey = old ? b.key : prevKey;
+  }
+  for (const b of doc.blocks) {
+    if (b.kind === 'trivia' || b.frozen) continue;
+    if (!doc2.byKey.has(b.key)) items.push({ action: 'delete', name: b.key, after: null, code: '' });
+  }
+  return items;
+}
+
+// 各項目を既存文書と突き合わせ、警告と差分情報を付ける
+function annotateItems(items, doc, settings) {
+  const regexes = omissionRegexes(settings && settings.omissionPatterns);
+  for (const it of items) {
+    it.warnings = [];
+    it.errors = [];
+    it.target = doc.byKey.get(it.name) || null;
+    it.code = (it.code || '').replace(/\r\n/g, '\n');
+    if (it.action === 'replace' && !it.target) {
+      it.action = 'add';
+      it.warnings.push({ kind: 'notfound', text: '「' + it.name + '」という名前のブロックは現在のファイルにありません。「追加」として扱います。' });
+    }
+    if (it.action === 'add' && it.target) {
+      it.action = 'replace';
+      it.warnings.push({ kind: 'exists', text: '同名のブロックが既にあるため「置換」として扱います。' });
+    }
+    if (it.target && it.target.frozen) it.errors.push({ kind: 'frozen', text: 'このブロックは外部ライブラリ（凍結）なので差し替えできません。' });
+    if (it.action === 'delete') { if (!it.target) it.errors.push({ kind: 'notfound', text: '削除対象「' + it.name + '」が見つかりません。' }); continue; }
+    if (it.unterminated) it.warnings.push({ kind: 'unterminated', text: '=== END === が見つかりません。返答が途中で切れている可能性があります。' });
+    if (it.code.trim() === '') { it.errors.push({ kind: 'empty', text: '中身が空です。' }); continue; }
+    const om = findOmissions(it.code, regexes);
+    if (om.length) it.warnings.push({ kind: 'omission', text: '省略サインがあります（' + om.map(n => n + '行目').join(', ') + '）。AIに「省略せず全文で」再依頼してください。' });
+    const lang = it.target ? it.target.lang : guessLang(it.name, it.code);
+    it.lang = lang;
+    if (lang === 'js') {
+      const stmts = splitJsTopLevel(it.code).filter(s => s.kind !== 'trivia');
+      const named = stmts.filter(s => s.name);
+      if (named.length > 1) it.warnings.push({ kind: 'multi', text: named.length + ' 個の宣言が含まれています（' + named.map(s => s.name).join(', ') + '）。適用すると複数のブロックに分かれます。' });
+      if (named.length >= 1 && it.action === 'replace' && !named.some(s => s.name === it.name)) it.warnings.push({ kind: 'rename', text: '封筒の名前「' + it.name + '」と中の宣言名「' + named[0].name + '」が違います。AIが改名した可能性があります。' });
+      if (named.length === 0 && stmts.length && it.action === 'add') it.warnings.push({ kind: 'unnamed', text: '名前のある宣言が含まれていません。' });
+      const err = jsSyntaxError(it.code);
+      if (err) it.errors.push({ kind: 'syntax', text: '構文エラー: ' + err });
+    }
+    if (it.target) {
+      it.oldLines = it.target.lines;
+      it.newLines = countLines(it.code);
+      if (it.oldLines >= 20 && it.newLines < it.oldLines / 2) it.warnings.push({ kind: 'shrink', text: '行数が ' + it.oldLines + ' → ' + it.newLines + ' に減っています。省略されていないか確認してください。' });
+    } else {
+      it.newLines = countLines(it.code);
+    }
+    if (it.action === 'add' && it.after && !doc.byKey.has(it.after)) it.warnings.push({ kind: 'after', text: '挿入位置「' + it.after + '」が見つからないため末尾に追加します。' });
+  }
+  return items;
+}
+
+// 名前と中身から言語を推定する
+function guessLang(name, code) {
+  if (/^css[:#]/.test(name)) return 'css';
+  if (/^html[:#]/.test(name)) return 'html';
+  if (/^\s*</.test(code) && !/^\s*<\//.test(code)) return 'html';
+  return 'js';
+}
+
+// JS の構文エラーを返す（無ければ null）
+function jsSyntaxError(code) {
+  try { new Function(code); return null; }
+  catch (e) { return String(e && e.message || e); }
+}
+
+// 返答テキストを解析して取り込み候補にする
+function parseResponse(text, doc, settings) {
+  const trimmed = text.trim();
+  if (!trimmed) return { mode: 'none', items: [], notes: [] };
+  const notes = [];
+  let items = parseEnvelopes(text);
+  let mode = 'envelope';
+  if (!items) {
+    if (/^\s*(<!doctype|<html)/i.test(trimmed) || (/<script\b/i.test(trimmed) && /<\/script\s*>/i.test(trimmed) && /<(body|head|style)\b/i.test(trimmed))) {
+      mode = 'fullfile';
+      items = parseFullFile(trimmed, doc);
+      notes.push('ファイル全文として解釈し、現在のファイルとブロック単位で比較しました。');
+      if (!items.length) notes.push('現在のファイルと同じ内容です（変更なし）。');
+    } else {
+      const r = parseBareCode(text, doc);
+      mode = 'bare';
+      items = r.items;
+      if (r.unnamed) notes.push('名前のない文が ' + r.unnamed + ' 個ありましたが無視しました（封筒形式なら取り込めます）。');
+      if (!items.length) notes.push('取り込める宣言が見つかりませんでした。「=== BLOCK: 名前 ===」形式か、関数のコードそのものを貼ってください。');
+      else notes.push('封筒（=== BLOCK ===）が無いため、宣言名で既存ブロックと突き合わせました。');
+    }
+  }
+  annotateItems(items, doc, settings);
+  return { mode, items, notes };
+}
+
+// ==== 行差分 ====
+
+// 2 つのテキストの行差分を返す（{t:' '|'-'|'+', l}）
+function diffLines(aText, bText) {
+  const aLines = aText.split('\n'), bLines = bText.split('\n');
+  let p = 0;
+  while (p < aLines.length && p < bLines.length && aLines[p] === bLines[p]) p++;
+  let s = 0;
+  while (s < aLines.length - p && s < bLines.length - p && aLines[aLines.length - 1 - s] === bLines[bLines.length - 1 - s]) s++;
+  const a = aLines.slice(p, aLines.length - s), b = bLines.slice(p, bLines.length - s);
+  const ops = [];
+  for (let i = 0; i < p; i++) ops.push({ t: ' ', l: aLines[i] });
+  if (a.length * b.length > 4e6) {
+    for (const l of a) ops.push({ t: '-', l });
+    for (const l of b) ops.push({ t: '+', l });
+  } else {
+    const n = a.length, m = b.length, W = m + 1;
+    const dp = new Uint32Array((n + 1) * (m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) {
+      dp[i * W + j] = a[i] === b[j] ? dp[(i + 1) * W + j + 1] + 1 : Math.max(dp[(i + 1) * W + j], dp[i * W + j + 1]);
+    }
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (a[i] === b[j]) { ops.push({ t: ' ', l: a[i] }); i++; j++; }
+      else if (dp[(i + 1) * W + j] >= dp[i * W + j + 1]) { ops.push({ t: '-', l: a[i] }); i++; }
+      else { ops.push({ t: '+', l: b[j] }); j++; }
+    }
+    while (i < n) ops.push({ t: '-', l: a[i++] });
+    while (j < m) ops.push({ t: '+', l: b[j++] });
+  }
+  for (let i = aLines.length - s; i < aLines.length; i++) ops.push({ t: ' ', l: aLines[i] });
+  return ops;
+}
+
+// 差分の追加・削除行数を数える
+function diffStats(ops) {
+  let add = 0, del = 0;
+  for (const o of ops) { if (o.t === '+') add++; else if (o.t === '-') del++; }
+  return { add, del };
+}
+
+// ==== 適用 ====
+
+// 取り込み候補を文書に適用し、新しい全文を返す
+function applyItems(doc, items) {
+  const eol = doc.eol;
+  const toEol = (s) => s.replace(/\r\n/g, '\n').replace(/\n/g, eol);
+  const replaceMap = new Map(), deleteSet = new Set(), addAfter = new Map(), addTail = [];
+  for (const it of items) {
+    if (it.action === 'replace') replaceMap.set(it.name, it);
+    else if (it.action === 'delete') deleteSet.add(it.name);
+    else if (it.action === 'add') {
+      const anchor = it.after && doc.byKey.has(it.after) ? it.after : null;
+      if (anchor) { if (!addAfter.has(anchor)) addAfter.set(anchor, []); addAfter.get(anchor).push(it); }
+      else addTail.push(it);
+    }
+  }
+  const main = mainScriptSegment(doc);
+  let out = '';
+  for (const seg of doc.segments) {
+    out += seg.open;
+    const n = seg.blocks.length;
+    seg.blocks.forEach((b, i) => {
+      let text = b.text;
+      if (deleteSet.has(b.key)) text = '';
+      else if (replaceMap.has(b.key)) {
+        const it = replaceMap.get(b.key);
+        const lead = /^(\s*?)(?=\S)/.exec(b.text);
+        const leadStr = lead ? lead[1] : '';
+        const trailM = /(\s*)$/.exec(b.text);
+        let trail = trailM ? trailM[1] : '';
+        if (!trail.includes('\n')) trail = eol + trail;
+        text = leadStr + toEol(it.code.replace(/\s+$/, '')) + trail;
+      }
+      const isLast = i === n - 1;
+      const tailHere = seg === main && isLast && addTail.length;
+      if (tailHere && seg.type === 'script' && b.kind === 'stmt' && !deleteSet.has(b.key)) {
+        let ins = '';
+        for (const it of addTail) ins += eol + toEol(it.code.replace(/\s+$/, '')) + eol + eol;
+        out += ins + text;
+      } else {
+        out += text;
+        if (addAfter.has(b.key)) {
+          if (!/\n\s*$/.test(out)) out += eol;
+          for (const it of addAfter.get(b.key)) out += eol + toEol(it.code.replace(/\s+$/, '')) + eol;
+        }
+        if (tailHere && !(seg.type === 'script' && b.kind === 'stmt' && !deleteSet.has(b.key))) {
+          if (!/\n\s*$/.test(out)) out += eol;
+          for (const it of addTail) out += eol + toEol(it.code.replace(/\s+$/, '')) + eol;
+        }
+      }
+    });
+    if (seg === main && n === 0 && addTail.length) for (const it of addTail) out += eol + toEol(it.code) + eol;
+    out += seg.close;
+  }
+  if (!main && addTail.length) for (const it of addTail) out += eol + toEol(it.code) + eol;
+  return out;
+}
+
+// 文書内の全インライン script の構文を検査する
+function checkDocumentSyntax(doc, changedNames) {
+  const errors = [];
+  for (const seg of doc.segments) {
+    if (seg.type !== 'script') continue;
+    const isModule = /\btype\s*=\s*["']?module/i.test(seg.attrs || '');
+    if (isModule) continue;
+    const err = jsSyntaxError(seg.body);
+    if (!err) continue;
+    let located = false;
+    for (const b of seg.blocks) {
+      if (changedNames && !changedNames.has(b.key)) continue;
+      const e2 = jsSyntaxError(blockCode(b));
+      if (e2) { errors.push({ name: b.key, message: e2 }); located = true; }
+    }
+    if (!located) errors.push({ name: null, message: err });
+  }
+  return errors;
+}
+
+// ==== プロンプト生成 ====
+
+// ブロックを封筒形式にする
+function envelope(b) {
+  return '=== BLOCK: ' + b.key + ' ===\n' + blockCode(b).replace(/\r\n/g, '\n') + '\n=== END ===';
+}
+
+// 署名 1 行（役割コメント付き）
+function signatureLine(b) {
+  const role = b.role ? '  // ' + b.role : '';
+  const disp = b.display && b.kind === 'stmt' ? b.display : b.sig;
+  return '- ' + disp + role;
+}
+
+// 目次テキストを作る
+function makeToc(doc) {
+  const lines = ['【ファイル全体の目次（名前 | 種類 | 行数 | 役割）】'];
+  let section = null;
+  for (const b of doc.blocks) {
+    if (b.kind === 'trivia') continue;
+    if (b.lang === 'js' && b.section !== section) { section = b.section; lines.push('## ' + (section || '(セクションなし)')); }
+    const kind = b.kind === 'function' ? '関数' : b.kind === 'class' ? 'クラス' : b.kind === 'var' || b.kind === 'assign' ? '変数' : b.kind === 'css' ? 'CSS' : b.kind === 'html' ? 'HTML' : b.kind === 'frozen' ? '外部' : '文';
+    const label = b.kind === 'stmt' && b.display ? b.key + ' ' + b.display : b.key;
+    lines.push('- ' + label + ' | ' + kind + ' | ' + b.lines + '行' + (b.role ? ' | ' + b.role : ''));
+  }
+  return lines.join('\n');
+}
+
+// 選択ブロックに関連するブロック（呼ぶ / 呼ばれる）を集める
+function relatedBlocks(doc, selectedKeys) {
+  const rel = new Set();
+  for (const k of selectedKeys) {
+    const b = doc.byKey.get(k);
+    if (!b) continue;
+    for (const c of b.calls) rel.add(c);
+    for (const c of b.calledBy) rel.add(c);
+  }
+  for (const k of selectedKeys) rel.delete(k);
+  return [...rel].map(k => doc.byKey.get(k)).filter(Boolean).sort((a, b) => a.index - b.index);
+}
+
+// 選択ブロックが推移的に呼ぶブロックをすべて集める（部品抽出用）
+function transitiveCalls(doc, selectedKeys) {
+  const seen = new Set();
+  const stack = [...selectedKeys];
+  while (stack.length) {
+    const k = stack.pop();
+    if (seen.has(k)) continue;
+    const b = doc.byKey.get(k);
+    if (!b) continue;
+    seen.add(k);
+    for (const c of b.calls) if (!seen.has(c)) stack.push(c);
+  }
+  return [...seen].map(k => doc.byKey.get(k)).sort((a, b) => a.index - b.index);
+}
+
+// テンプレートのプレースホルダを置換する
+function fillTemplate(tpl, vars) {
+  return tpl.replace(/\{\{(\w+)\}\}/g, (m, k) => (k in vars ? vars[k] : m));
+}
+
+// プロンプト本文を組み立てる
+function buildPrompt(doc, opts, templates) {
+  const selected = [...opts.selected].map(k => doc.byKey.get(k)).filter(Boolean).sort((a, b) => a.index - b.index);
+  const related = relatedBlocks(doc, opts.selected);
+  const vars = {
+    FILE: opts.fileName || '(不明)',
+    RULES: RULES_TEXT,
+    FORMAT: FORMAT_TEXT,
+    TASK: (opts.task || '').trim() || '（やりたいことをここに書く）',
+    BLOCKS: selected.length ? selected.map(envelope).join('\n\n') : '（選択なし）',
+    RELATED: related.length ? related.map(opts.includeRelatedBody ? envelope : signatureLine).join(opts.includeRelatedBody ? '\n\n' : '\n') : '（なし）',
+    TOC: opts.toc ? makeToc(doc) : '',
+    FULL: doc.src.replace(/\r\n/g, '\n'),
+    ANCHOR: selected.length ? selected[selected.length - 1].key : (lastFunctionKey(doc) || '(末尾)'),
+  };
+  const header = fillTemplate(templates.header, vars);
+  let body;
+  if (opts.full) body = fillTemplate(templates.full, vars);
+  else {
+    const kind = templates.kinds[opts.kind] || templates.kinds.bugfix;
+    body = fillTemplate(kind.body, vars);
+  }
+  return (header + '\n' + body).replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+// 最後の関数ブロックのキー
+function lastFunctionKey(doc) {
+  for (let i = doc.blocks.length - 1; i >= 0; i--) if (doc.blocks[i].kind === 'function') return doc.blocks[i].key;
+  return null;
+}
+
+// 再依頼プロンプトを作る
+function buildReask(names, templates) {
+  return fillTemplate(templates.reask, { NAMES: names.join(', ') }) + '\n';
+}
+
+// ==== 書き出し ====
+
+// カタログ Markdown を作る
+function makeCatalog(doc, fileName) {
+  const lines = ['# ' + (fileName || 'ファイル') + ' ブロックカタログ', '', '生成: ' + new Date().toLocaleString() + ' / ブロック数: ' + doc.blocks.filter(b => b.kind !== 'trivia').length, ''];
+  let section = null;
+  for (const b of doc.blocks) {
+    if (b.kind === 'trivia') continue;
+    if (b.lang === 'js' && b.section !== section) { section = b.section; lines.push('## ' + (section || '(セクションなし)'), ''); }
+    lines.push('### ' + b.key + (b.display ? '  ' + b.display : ''));
+    if (b.role) lines.push('役割: ' + b.role);
+    lines.push('種類: ' + b.kind + ' / 行数: ' + b.lines);
+    if (b.sig && b.kind !== 'stmt') lines.push('署名: `' + b.sig + '`');
+    if (b.calls.length) lines.push('呼んでいる: ' + b.calls.join(', '));
+    if (b.calledBy.length) lines.push('呼ばれている: ' + b.calledBy.join(', '));
+    lines.push('');
+  }
+  return lines.join('\n');
+}
+
+// 部品抽出（選択＋推移的依存を 1 つの JS に）
+function makePartsJs(doc, selectedKeys, fileName) {
+  const blocks = transitiveCalls(doc, selectedKeys).filter(b => b.lang === 'js');
+  const head = ['// 抽出元: ' + (fileName || '(不明)'), '// 日時: ' + new Date().toLocaleString(), '// ブロック: ' + blocks.map(b => b.key).join(', '), ''].join('\n');
+  return head + blocks.map(b => blockCode(b).replace(/\r\n/g, '\n')).join('\n\n') + '\n';
+}
+
+// ブロック名を安全なファイル名にする
+function safeFileName(name) {
+  return name.replace(/[\\/:*?"<>|]/g, '_').replace(/\s+/g, '_').slice(0, 80);
+}
+
+// CRC32 を計算する
+function crc32(bytes) {
+  let table = crc32.table;
+  if (!table) {
+    table = new Uint32Array(256);
+    for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; table[i] = c >>> 0; }
+    crc32.table = table;
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < bytes.length; i++) crc = table[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+// 無圧縮 zip を作る（files: [{name, data}]）
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const central = [];
+  let offset = 0;
+  const now = new Date();
+  const dosTime = ((now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1)) & 0xffff;
+  const dosDate = (((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate()) & 0xffff;
+  for (const f of files) {
+    const nameB = enc.encode(f.name);
+    const dataB = enc.encode(f.data);
+    const crc = crc32(dataB);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(6, 0x0800, true); lh.setUint16(8, 0, true);
+    lh.setUint16(10, dosTime, true); lh.setUint16(12, dosDate, true); lh.setUint32(14, crc, true);
+    lh.setUint32(18, dataB.length, true); lh.setUint32(22, dataB.length, true); lh.setUint16(26, nameB.length, true); lh.setUint16(28, 0, true);
+    chunks.push(new Uint8Array(lh.buffer), nameB, dataB);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true); ch.setUint16(8, 0x0800, true); ch.setUint16(10, 0, true);
+    ch.setUint16(12, dosTime, true); ch.setUint16(14, dosDate, true); ch.setUint32(16, crc, true);
+    ch.setUint32(20, dataB.length, true); ch.setUint32(24, dataB.length, true); ch.setUint16(28, nameB.length, true);
+    ch.setUint16(30, 0, true); ch.setUint16(32, 0, true); ch.setUint16(34, 0, true); ch.setUint16(36, 0, true); ch.setUint32(38, 0, true); ch.setUint32(42, offset, true);
+    central.push(new Uint8Array(ch.buffer), nameB);
+    offset += 30 + nameB.length + dataB.length;
+  }
+  let centralSize = 0;
+  for (const c of central) centralSize += c.length;
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(4, 0, true); end.setUint16(6, 0, true);
+  end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, centralSize, true); end.setUint32(16, offset, true); end.setUint16(20, 0, true);
+  const all = [...chunks, ...central, new Uint8Array(end.buffer)];
+  let total = 0;
+  for (const c of all) total += c.length;
+  const out = new Uint8Array(total);
+  let p = 0;
+  for (const c of all) { out.set(c, p); p += c.length; }
+  return out;
+}
+
+// 日時付きの出力ファイル名を作る
+function stampedFileName(name) {
+  const d = new Date();
+  const z = (n) => String(n).padStart(2, '0');
+  const stamp = d.getFullYear() + z(d.getMonth() + 1) + z(d.getDate()) + '-' + z(d.getHours()) + z(d.getMinutes());
+  const m = /^(.*?)(\.[^.]*)?$/.exec(name || 'tool.html');
+  const base = (m[1] || 'tool').replace(/\.\d{8}-\d{4}$/, '');
+  return base + '.' + stamp + (m[2] || '.html');
+}
+
+// ==== UI ユーティリティ ====
+
+// HTML エスケープ
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// id で要素を取る
+function $(id) {
+  return document.getElementById(id);
+}
+
+// トースト表示
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// 数値を桁区切りにする
+function fmtNum(n) {
+  return Number(n || 0).toLocaleString('ja-JP');
+}
+
+// クリップボードにコピーする
+async function copyText(text, fallbackEl) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(text); return true; }
+  } catch (e) { /* 次の手段へ */ }
+  try {
+    const ta = fallbackEl || document.createElement('textarea');
+    if (!fallbackEl) { ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); }
+    ta.focus(); ta.select();
+    const ok = document.execCommand('copy');
+    if (!fallbackEl) ta.remove();
+    return ok;
+  } catch (e) { return false; }
+}
+
+// ファイルをダウンロードする
+function downloadFile(name, data, mime) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+// 設定を読み込む
+function loadSettings() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(LS_SETTINGS) || 'null'); } catch (e) { s = null; }
+  const def = { templates: JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)), omissionPatterns: DEFAULT_OMISSION_PATTERNS.slice() };
+  if (!s) return def;
+  const out = def;
+  if (s.templates) {
+    if (typeof s.templates.header === 'string') out.templates.header = s.templates.header;
+    if (typeof s.templates.full === 'string') out.templates.full = s.templates.full;
+    if (typeof s.templates.reask === 'string') out.templates.reask = s.templates.reask;
+    if (s.templates.kinds) for (const k of Object.keys(out.templates.kinds)) if (s.templates.kinds[k] && typeof s.templates.kinds[k].body === 'string') out.templates.kinds[k].body = s.templates.kinds[k].body;
+  }
+  if (Array.isArray(s.omissionPatterns)) out.omissionPatterns = s.omissionPatterns;
+  return out;
+}
+
+// 設定を保存する
+function saveSettings() {
+  try { localStorage.setItem(LS_SETTINGS, JSON.stringify(STATE.settings)); } catch (e) { /* 保存できなくても動作は継続 */ }
+}
+
+// 作業中の内容をブラウザに退避する
+function saveSession() {
+  if (!STATE.doc) return;
+  try { localStorage.setItem(LS_SESSION, JSON.stringify({ name: STATE.fileName, src: STATE.doc.src, when: Date.now(), dirty: STATE.dirty })); } catch (e) { /* 容量超過などは無視 */ }
+}
+
+// 退避した内容を読む
+function loadSession() {
+  try { return JSON.parse(localStorage.getItem(LS_SESSION) || 'null'); } catch (e) { return null; }
+}
+
+// ==== UI: ステップ遷移 ====
+
+// ステップの定義
+function stepDefs() {
+  return [
+    { n: 1, t: '読み込む', d: 'HTMLを選ぶ' },
+    { n: 2, t: '選ぶ', d: '直したい関数にチェック' },
+    { n: 3, t: 'AIに依頼', d: 'プロンプトをコピー' },
+    { n: 4, t: '返答を取り込む', d: '差分を確認して適用' },
+    { n: 5, t: '保存', d: '新しいHTMLをダウンロード' },
+  ];
+}
+
+// ステップに移動できるか（できない理由を返す。null なら可）
+function stepLockReason(n) {
+  if (n === 1) return null;
+  if (!STATE.doc) return '先に①でファイルを読み込んでください';
+  return null;
+}
+
+// 進捗バーを描画する
+function renderSteps() {
+  const ol = $('steps');
+  ol.innerHTML = stepDefs().map(s => {
+    const reason = stepLockReason(s.n);
+    const cls = [s.n === STATE.step ? 'current' : '', reason ? 'locked' : '', (!reason && s.n < STATE.step) ? 'done' : ''].join(' ');
+    const d = reason ? reason : s.d;
+    return '<li class="' + cls + '" data-step="' + s.n + '" title="' + esc(reason || s.t) + '"><span class="n">' + s.n + '</span><span class="t">' + esc(s.t) + '</span><span class="d">' + esc(d) + '</span></li>';
+  }).join('');
+}
+
+// ステップを表示する
+function gotoStep(n) {
+  const reason = stepLockReason(n);
+  if (reason) { toast(reason); return; }
+  STATE.step = n;
+  document.querySelectorAll('.step').forEach(el => el.classList.toggle('active', el.id === 'step' + n));
+  renderSteps();
+  if (n === 2) renderStep2();
+  if (n === 3) renderStep3();
+  if (n === 4) renderStep4();
+  if (n === 5) renderStep5();
+  window.scrollTo(0, 0);
+}
+
+// ステータスバーを更新する
+function renderStatus() {
+  $('stFile').textContent = STATE.doc ? STATE.fileName : 'ファイル未読込';
+  $('stBlocks').textContent = STATE.doc ? fmtNum(STATE.doc.blocks.filter(b => b.kind !== 'trivia').length) + ' ブロック / ' + fmtNum(countLines(STATE.doc.src)) + ' 行 / ' + fmtNum(STATE.doc.src.length) + ' 文字' : '';
+  $('stDirty').classList.toggle('hidden', !STATE.dirty);
+}
+
+// ヘルプの開閉
+function toggleHelp(n) {
+  const el = $('help' + n);
+  if (!el.innerHTML) el.innerHTML = HELP_TEXT[n];
+  el.classList.toggle('hidden');
+}
+
+// ==== UI: ① 読み込む ====
+
+// ファイルを読み込んで解析する
+function loadSource(name, src, opts) {
+  const doc = parseDocument(src);
+  STATE.doc = doc;
+  STATE.fileName = name || 'tool.html';
+  STATE.originalSrc = src;
+  STATE.prevSrc = null;
+  STATE.selected = new Set();
+  STATE.activeKey = null;
+  STATE.parsed = null;
+  STATE.lastApply = null;
+  STATE.dirty = !!(opts && opts.dirty);
+  STATE.isSample = !!(opts && opts.sample);
+  $('response').value = '';
+  $('parseCard').innerHTML = '<div class="empty">返答を貼ると、変更されるブロックが1枚ずつカードで表示されます。<br>緑=置換 / 青=追加 / 赤=削除 / 黄=警告あり</div>';
+  $('applyCard').classList.add('hidden');
+  saveSession();
+  renderLoadResult();
+  renderStatus();
+  renderSteps();
+  $('toStep2').classList.remove('hidden');
+  $('resumeCard').classList.add('hidden');
+}
+
+// 読み込み結果カードを描画する
+function renderLoadResult() {
+  const doc = STATE.doc;
+  const el = $('loadResult');
+  const counts = {};
+  for (const b of doc.blocks) counts[b.kind] = (counts[b.kind] || 0) + 1;
+  const real = doc.blocks.filter(b => b.kind !== 'trivia').length;
+  const jsSegs = doc.segments.filter(s => s.type === 'script').length;
+  const rt = doc.roundTrip
+    ? '<div class="note ok">復元チェック: <b>OK</b>（分けたブロックをつなぎ直すと元のファイルと完全に一致します）</div>'
+    : '<div class="note err">復元チェック: <b>失敗</b>。このファイルは安全に差し替えできません。ファイルが壊れていないか確認してください。</div>';
+  const stmtNote = counts.stmt ? '<p class="small muted">名前のない文（イベント登録・起動処理など）が ' + counts.stmt + ' 個あり、stmt#番号 で扱います。</p>' : '';
+  const noScript = jsSegs === 0 ? '<div class="note warn">インラインの &lt;script&gt; が見つかりません。本体の .html を選んでいるか確認してください。</div>' : '';
+  el.innerHTML = '<h2>' + esc(STATE.fileName) + ' を読み込みました' + (STATE.isSample ? ' <span class="badge info">サンプル</span>' : '') + '</h2>' +
+    '<div class="stats"><div><b>' + fmtNum(countLines(doc.src)) + '</b>行</div><div><b>' + fmtNum(doc.src.length) + '</b>文字</div><div><b>' + fmtNum(real) + '</b>ブロック</div>' +
+    '<div><b>' + fmtNum(counts.function || 0) + '</b>関数</div><div><b>' + fmtNum((counts.var || 0) + (counts.assign || 0)) + '</b>定数・変数</div><div><b>' + fmtNum(counts.class || 0) + '</b>クラス</div><div><b>' + fmtNum(counts.css || 0) + '</b>CSS</div><div><b>' + fmtNum(counts.html || 0) + '</b>HTML</div><div><b>' + fmtNum(counts.frozen || 0) + '</b>外部ライブラリ</div></div>' +
+    rt + noScript + stmtNote +
+    (STATE.isSample ? '<div class="note info" style="margin-top:8px">サンプルでは「② 選ぶ」で <code>sumMinutes</code> を選び、「③ AIに依頼」でプロンプトを見て、「④ 返答を取り込む」で「サンプルの返答を貼る」を押すと一連の流れを体験できます。</div>' : '');
+  el.classList.remove('hidden');
+}
+
+// File オブジェクトを読む
+function readFileObject(file) {
+  const reader = new FileReader();
+  reader.onload = () => { loadSource(file.name, String(reader.result)); toast('読み込みました'); };
+  reader.onerror = () => toast('読み込みに失敗しました');
+  reader.readAsText(file);
+}
+
+// ① の初期化
+function initStep1() {
+  const dz = $('dropzone');
+  dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+  dz.addEventListener('drop', (e) => { e.preventDefault(); dz.classList.remove('over'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) readFileObject(f); });
+  $('btnPick').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', (e) => { const f = e.target.files && e.target.files[0]; if (f) readFileObject(f); e.target.value = ''; });
+  $('btnPasteLoad').addEventListener('click', () => {
+    const src = $('pasteSrc').value;
+    if (!src.trim()) { toast('貼り付け欄が空です'); return; }
+    loadSource($('pasteName').value.trim() || 'pasted.html', src);
+    toast('読み込みました');
+  });
+  $('btnSample').addEventListener('click', () => { loadSource('sample_app.html', SAMPLE_APP, { sample: true }); STATE.task = '集計が0件のとき例外になるのを直したい。0件なら 0 を返してほしい。'; $('task').value = STATE.task; toast('サンプルを読み込みました'); });
+  $('toStep2').addEventListener('click', () => gotoStep(2));
+  const sess = loadSession();
+  if (sess && sess.src) {
+    $('resumeInfo').textContent = sess.name + '（' + new Date(sess.when).toLocaleString() + (sess.dirty ? '・未保存の変更あり' : '') + '）';
+    $('resumeCard').classList.remove('hidden');
+    $('btnResume').addEventListener('click', () => { loadSource(sess.name, sess.src, { dirty: sess.dirty }); toast('前回の続きを開きました'); gotoStep(2); });
+    $('btnResumeDiscard').addEventListener('click', () => { try { localStorage.removeItem(LS_SESSION); } catch (e) { /* 無視 */ } $('resumeCard').classList.add('hidden'); });
+  }
+}
+
+// ==== UI: ② 選ぶ ====
+
+// 一覧に表示する対象ブロック
+function visibleBlocks() {
+  const q = $('search').value.trim().toLowerCase();
+  const kind = $('kindFilter').value;
+  return STATE.doc.blocks.filter(b => {
+    if (b.kind === 'trivia') return false;
+    if (kind && !(b.kind === kind || (kind === 'var' && b.kind === 'assign'))) return false;
+    if (!q) return true;
+    return (b.key + ' ' + (b.display || '') + ' ' + b.role + ' ' + (b.section || '') + ' ' + b.sig).toLowerCase().includes(q);
+  });
+}
+
+// 種類の短いラベル
+function kindLabel(kind) {
+  return { function: 'fn', class: 'cls', var: 'var', assign: 'var', css: 'css', html: 'htm', stmt: '文', frozen: 'lib', text: 'txt', trivia: '' }[kind] || kind;
+}
+
+// ブロック一覧を描画する
+function renderBlockList() {
+  const list = $('blist');
+  const blocks = visibleBlocks();
+  $('listCount').textContent = blocks.length + ' 件表示 / 選択 ' + STATE.selected.size + ' 件';
+  if (!blocks.length) { list.innerHTML = '<div class="empty">該当するブロックがありません。検索語を変えてみてください。</div>'; return; }
+  let html = '';
+  let section = undefined;
+  for (const b of blocks) {
+    const secName = b.lang === 'js' ? (b.section || '(セクションなし)') : (b.lang === 'css' ? 'CSS' : b.lang === 'html' ? 'HTML' : '外部・その他');
+    if (secName !== section) { section = secName; html += '<div class="sec">' + esc(secName) + '</div>'; }
+    const checked = STATE.selected.has(b.key) ? ' checked' : '';
+    const active = STATE.activeKey === b.key ? ' active' : '';
+    const dis = b.frozen ? ' disabled title="外部ライブラリは選べません"' : '';
+    html += '<div class="item' + active + '" data-key="' + esc(b.key) + '"><input type="checkbox" data-sel="' + esc(b.key) + '"' + checked + dis + '>' +
+      '<span class="kind ' + esc(b.kind) + '">' + esc(kindLabel(b.kind)) + '</span><span class="nm">' + esc(b.key) + '</span><span class="role">' + esc(b.display || b.role || '') + '</span><span class="ln">' + b.lines + '行</span></div>';
+  }
+  list.innerHTML = html;
+}
+
+// 右側の詳細を描画する
+function renderDetail() {
+  const el = $('detail');
+  const b = STATE.activeKey ? STATE.doc.byKey.get(STATE.activeKey) : null;
+  if (!b) { el.innerHTML = '<div class="empty">左の一覧から関数を選ぶと、ここにコードと「呼んでいる / 呼ばれている」関数が出ます。</div>'; return; }
+  const chips = (keys) => keys.length ? keys.map(k => '<span class="chip' + (STATE.selected.has(k) ? ' sel' : '') + '" data-jump="' + esc(k) + '">' + esc(k) + '</span>').join('') : '<span class="muted small">なし</span>';
+  const sel = STATE.selected.has(b.key);
+  el.innerHTML = '<div class="row"><div class="grow"><div class="title">' + esc(b.key) + '</div>' + (b.role ? '<div class="muted">' + esc(b.role) + '</div>' : '') + '</div>' +
+    (b.frozen ? '<span class="badge">外部ライブラリ（AIには渡しません）</span>' : '<button class="btn' + (sel ? '' : ' primary') + '" id="btnToggleSel">' + (sel ? '選択を外す' : 'このブロックを選ぶ') + '</button>') + '</div>' +
+    '<div class="kv small" style="margin:10px 0"><span class="muted">種類</span><span>' + esc(b.kind) + (b.section ? '　<span class="muted">セクション:</span> ' + esc(b.section) : '') + '</span><span class="muted">行数</span><span>' + b.lines + ' 行 / ' + fmtNum(b.text.length) + ' 文字</span>' +
+    '<span class="muted">呼んでいる</span><span class="chips">' + chips(b.calls) + '</span><span class="muted">呼ばれている</span><span class="chips">' + chips(b.calledBy) + '</span></div>' +
+    '<div class="codebox"><pre>' + esc(blockCode(b)) + '</pre></div>';
+  const tg = $('btnToggleSel');
+  if (tg) tg.addEventListener('click', () => { toggleSelect(b.key); });
+}
+
+// 「AI に渡す範囲」パネルを描画する
+function renderScope() {
+  const el = $('scope');
+  const doc = STATE.doc;
+  const related = relatedBlocks(doc, STATE.selected);
+  const est = estimatePromptLength();
+  const relTxt = STATE.includeRelatedBody ? '関連ブロック本文' : '関連の署名';
+  el.innerHTML = '<div class="row"><div class="grow">AIに渡す範囲: <b class="num">' + STATE.selected.size + '</b> ブロック + ' + relTxt + ' <b class="num">' + related.length + '</b> 件 ≈ <b class="num">' + fmtNum(est) + '</b> 文字</div></div>' +
+    '<label class="small"><input type="checkbox" id="optRelBody"' + (STATE.includeRelatedBody ? ' checked' : '') + '> 関連ブロックも本文ごと含める（関連側も直す可能性があるとき）</label>' +
+    (STATE.selected.size === 0 ? '<div class="small muted" style="margin-top:6px">まだ何も選んでいません。「新しい部品を作る」依頼以外は、直したいブロックを 1 つ以上選んでください。</div>' : '');
+  $('optRelBody').addEventListener('change', (e) => { STATE.includeRelatedBody = e.target.checked; renderScope(); });
+}
+
+// プロンプト文字数の概算
+function estimatePromptLength() {
+  if (!STATE.doc) return 0;
+  try {
+    return buildPrompt(STATE.doc, { selected: STATE.selected, task: STATE.task, kind: STATE.kind, toc: $('optToc').checked, full: $('optFull').checked, includeRelatedBody: STATE.includeRelatedBody, fileName: STATE.fileName }, STATE.settings.templates).length;
+  } catch (e) { return 0; }
+}
+
+// 選択を切り替える
+function toggleSelect(key, force) {
+  const b = STATE.doc.byKey.get(key);
+  if (!b || b.frozen) return;
+  const on = force == null ? !STATE.selected.has(key) : force;
+  if (on) STATE.selected.add(key); else STATE.selected.delete(key);
+  renderBlockList();
+  renderDetail();
+  renderScope();
+}
+
+// ② の描画
+function renderStep2() {
+  renderBlockList();
+  renderDetail();
+  renderScope();
+  setTimeout(() => $('search').focus(), 0);
+}
+
+// ② の初期化
+function initStep2() {
+  $('search').addEventListener('input', renderBlockList);
+  $('kindFilter').addEventListener('change', renderBlockList);
+  $('blist').addEventListener('click', (e) => {
+    const cb = e.target.closest('input[data-sel]');
+    if (cb) { toggleSelect(cb.dataset.sel, cb.checked); return; }
+    const item = e.target.closest('.item');
+    if (item) { STATE.activeKey = item.dataset.key; renderBlockList(); renderDetail(); }
+  });
+  $('detail').addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-jump]');
+    if (chip) { STATE.activeKey = chip.dataset.jump; $('search').value = ''; renderBlockList(); renderDetail(); const it = document.querySelector('.item.active'); if (it) it.scrollIntoView({ block: 'center' }); }
+  });
+  $('btnSelectRelated').addEventListener('click', () => {
+    if (!STATE.selected.size && STATE.activeKey) STATE.selected.add(STATE.activeKey);
+    for (const b of relatedBlocks(STATE.doc, STATE.selected)) if (!b.frozen) STATE.selected.add(b.key);
+    renderStep2();
+  });
+  $('btnClearSel').addEventListener('click', () => { STATE.selected.clear(); renderStep2(); });
+  $('toStep3').addEventListener('click', () => gotoStep(3));
+}
+
+// ==== UI: ③ AIに依頼 ====
+
+// 依頼の種類ボタンを描画する
+function renderKinds() {
+  const el = $('kinds');
+  el.innerHTML = Object.entries(STATE.settings.templates.kinds).map(([k, v]) => '<button data-kind="' + k + '" class="' + (STATE.kind === k ? 'sel' : '') + '">' + esc(v.label) + '<small>' + esc(v.hint || '') + '</small></button>').join('');
+}
+
+// プロンプトを生成して表示する
+function renderPrompt() {
+  if (!STATE.doc) return;
+  STATE.task = $('task').value;
+  const full = $('optFull').checked;
+  const p = buildPrompt(STATE.doc, { selected: STATE.selected, task: STATE.task, kind: STATE.kind, toc: $('optToc').checked, full, includeRelatedBody: STATE.includeRelatedBody, fileName: STATE.fileName }, STATE.settings.templates);
+  $('prompt').value = p;
+  $('promptLen').textContent = fmtNum(p.length) + ' 文字';
+  const warn = $('askWarn');
+  const msgs = [];
+  if (!STATE.task.trim()) msgs.push('「やりたいこと」が空です。具体的に書くほど AI の返答が正確になります。');
+  if (!full && STATE.selected.size === 0 && STATE.kind !== 'newpart') msgs.push('ブロックが選ばれていません。「② 選ぶ」で直したいブロックにチェックを入れるか、「全文で依頼する」を使ってください。');
+  if (full) msgs.push('全文モードです。ファイル全体（' + fmtNum(STATE.doc.src.length) + ' 文字）を AI に貼ります。');
+  warn.innerHTML = msgs.map(m => '<div>' + esc(m) + '</div>').join('');
+  warn.classList.toggle('hidden', !msgs.length);
+  $('afterCopy').classList.add('hidden');
+}
+
+// ③ の描画
+function renderStep3() {
+  renderKinds();
+  $('task').value = STATE.task;
+  renderPrompt();
+}
+
+// ③ の初期化
+function initStep3() {
+  $('task').addEventListener('input', renderPrompt);
+  $('optToc').addEventListener('change', renderPrompt);
+  $('optFull').addEventListener('change', renderPrompt);
+  $('kinds').addEventListener('click', (e) => { const b = e.target.closest('button[data-kind]'); if (!b) return; STATE.kind = b.dataset.kind; renderKinds(); renderPrompt(); });
+  $('btnCopyPrompt').addEventListener('click', async () => {
+    renderPrompt();
+    const ok = await copyText($('prompt').value, $('prompt'));
+    if (ok) { $('afterCopy').classList.remove('hidden'); toast('プロンプトをコピーしました'); }
+    else toast('コピーできませんでした。プロンプト欄を全選択して手動でコピーしてください');
+  });
+  $('toStep4').addEventListener('click', () => gotoStep(4));
+}
+
+// ==== UI: ④ 返答を取り込む ====
+
+// 差分 HTML を作る（同じ行が続く所は畳む）
+function renderDiffHtml(oldText, newText) {
+  const ops = diffLines(oldText.replace(/\r\n/g, '\n'), newText.replace(/\r\n/g, '\n'));
+  const out = [];
+  const CTX = 3;
+  let i = 0;
+  while (i < ops.length) {
+    if (ops[i].t !== ' ') { out.push(lineHtml(ops[i])); i++; continue; }
+    let j = i;
+    while (j < ops.length && ops[j].t === ' ') j++;
+    const run = j - i;
+    if (run > CTX * 2 + 2) {
+      const head = i === 0 ? 0 : CTX, tail = j === ops.length ? 0 : CTX;
+      for (let k = i; k < i + head; k++) out.push(lineHtml(ops[k]));
+      out.push('<div class="skip">… ' + (run - head - tail) + ' 行同じ …</div>');
+      for (let k = j - tail; k < j; k++) out.push(lineHtml(ops[k]));
+    } else for (let k = i; k < j; k++) out.push(lineHtml(ops[k]));
+    i = j;
+  }
+  return '<div class="diff">' + out.join('') + '</div>';
+}
+
+// 差分 1 行の HTML
+function lineHtml(op) {
+  const cls = op.t === '+' ? 'ins' : op.t === '-' ? 'del' : 'ctx';
+  return '<div class="' + cls + '">' + op.t + ' ' + esc(op.l) + '</div>';
+}
+
+// 取り込みカードを描画する
+function renderParseResult() {
+  const card = $('parseCard');
+  const parsed = STATE.parsed;
+  if (!parsed || parsed.mode === 'none') {
+    card.innerHTML = '<div class="empty">返答を貼ると、変更されるブロックが1枚ずつカードで表示されます。<br>緑=置換 / 青=追加 / 赤=削除 / 黄=警告あり</div>';
+    $('applyCard').classList.add('hidden');
+    return;
+  }
+  const notes = parsed.notes.map(n => '<div class="note info small" style="margin-bottom:8px">' + esc(n) + '</div>').join('');
+  if (!parsed.items.length) { card.innerHTML = notes + '<div class="empty">取り込める変更がありません。</div>'; $('applyCard').classList.add('hidden'); return; }
+  const omitted = parsed.items.filter(it => it.warnings.some(w => w.kind === 'omission' || w.kind === 'shrink' || w.kind === 'unterminated'));
+  let html = notes;
+  if (omitted.length) html += '<div class="note warn" style="margin-bottom:10px"><b>省略の疑いがあるブロックがあります</b>（' + esc(omitted.map(i => i.name).join(', ')) + '）。このまま適用するとコードが欠けます。<br><button class="btn" id="btnReask" style="margin-top:6px">「省略せず全文で」再依頼するプロンプトをコピー</button></div>';
+  html += '<div class="cards">' + parsed.items.map((it, idx) => renderItemCard(it, idx)).join('') + '</div>';
+  card.innerHTML = html;
+  const reask = $('btnReask');
+  if (reask) reask.addEventListener('click', async () => { const ok = await copyText(buildReask(omitted.map(i => i.name), STATE.settings.templates)); toast(ok ? '再依頼プロンプトをコピーしました。AIに貼り付けてください' : 'コピーできませんでした'); });
+  $('applyCard').classList.remove('hidden');
+  $('applyResult').innerHTML = '';
+  updateApplyInfo();
+}
+
+// 1 枚の取り込みカード
+function renderItemCard(it, idx) {
+  const hasErr = it.errors.length > 0;
+  const hasWarn = it.warnings.length > 0;
+  const cls = hasErr ? 'err' : hasWarn ? 'warn' : it.action;
+  const actionLabel = it.action === 'replace' ? '置換' : it.action === 'add' ? '追加' : '削除';
+  const badgeCls = it.action === 'replace' ? 'ok' : it.action === 'add' ? 'info' : 'err';
+  let stat = '';
+  if (it.action === 'replace' && it.target) { const d = diffStats(diffLines(blockCode(it.target).replace(/\r\n/g, '\n'), it.code)); stat = '<span class="small muted">+' + d.add + ' / −' + d.del + ' 行</span>'; }
+  else if (it.action === 'add') { stat = '<span class="small muted">' + it.newLines + ' 行' + (it.after ? '、「' + esc(it.after) + '」の後に入ります' : '、末尾に入ります') + '</span>'; }
+  else if (it.action === 'delete' && it.target) stat = '<span class="small muted">' + it.target.lines + ' 行を削除</span>';
+  const suspicious = it.warnings.some(w => w.kind === 'omission' || w.kind === 'shrink' || w.kind === 'unterminated');
+  const checked = (hasErr || suspicious) ? '' : ' checked';
+  const msgs = [...it.errors.map(e => '<li>✖ ' + esc(e.text) + '</li>'), ...it.warnings.map(w => '<li>⚠ ' + esc(w.text) + (w.kind === 'rename' ? ' <button class="btn small" data-asadd="' + idx + '">改名として扱う（旧名を削除し新名で追加）</button>' : '') + '</li>')];
+  let body = '';
+  if (it.action === 'replace' && it.target) body = '<details><summary class="small" style="cursor:pointer">差分を見る</summary>' + renderDiffHtml(blockCode(it.target), it.code) + '</details>';
+  else if (it.action === 'add') body = '<details><summary class="small" style="cursor:pointer">コードを見る</summary><div class="codebox" style="margin-top:6px"><pre>' + esc(it.code) + '</pre></div></details>';
+  else if (it.action === 'delete' && it.target) body = '<details><summary class="small" style="cursor:pointer">削除されるコードを見る</summary><div class="codebox" style="margin-top:6px"><pre>' + esc(blockCode(it.target)) + '</pre></div></details>';
+  return '<div class="ccard ' + cls + '"><div class="head"><input type="checkbox" data-apply="' + idx + '"' + checked + (hasErr ? ' disabled' : '') + '><span class="badge ' + badgeCls + '">' + actionLabel + '</span><span class="nm">' + esc(it.name) + '</span>' + stat + '</div>' +
+    (msgs.length ? '<ul class="msgs small">' + msgs.join('') + '</ul>' : '') + body + '</div>';
+}
+
+// 適用ボタンの説明を更新する
+function updateApplyInfo() {
+  const n = document.querySelectorAll('#parseCard input[data-apply]:checked').length;
+  $('applyInfo').textContent = n ? n + ' 件を適用します。適用後に構文チェックを行います。' : '適用する項目にチェックを入れてください。';
+  $('btnApply').disabled = n === 0;
+}
+
+// 返答欄を解析する
+function analyzeResponse() {
+  if (!STATE.doc) return;
+  const text = $('response').value;
+  STATE.parsed = parseResponse(text, STATE.doc, STATE.settings);
+  renderParseResult();
+}
+
+// チェックした変更を適用する
+function applyChecked() {
+  const idxs = [...document.querySelectorAll('#parseCard input[data-apply]:checked')].map(cb => Number(cb.dataset.apply));
+  const items = idxs.map(i => STATE.parsed.items[i]).filter(it => it && !it.errors.length);
+  if (!items.length) return;
+  const before = STATE.doc.src;
+  const newSrc = applyItems(STATE.doc, items);
+  const newDoc = parseDocument(newSrc);
+  const changed = new Set();
+  for (const it of items) { changed.add(it.name); if (it.lang === 'js') for (const s of splitJsTopLevel(it.code)) if (s.name) changed.add(s.name); }
+  const errors = checkDocumentSyntax(newDoc, changed);
+  STATE.prevSrc = before;
+  STATE.doc = newDoc;
+  STATE.dirty = true;
+  const sum = { replace: 0, add: 0, delete: 0 };
+  for (const it of items) sum[it.action]++;
+  STATE.lastApply = sum;
+  for (const k of [...STATE.selected]) if (!newDoc.byKey.has(k)) STATE.selected.delete(k);
+  saveSession();
+  renderStatus();
+  const res = $('applyResult');
+  const summary = '置換 ' + sum.replace + ' / 追加 ' + sum.add + ' / 削除 ' + sum.delete + ' を適用しました。';
+  if (!errors.length) {
+    res.innerHTML = '<div class="note ok">' + esc(summary) + ' <b>構文チェック OK</b>' + (newDoc.roundTrip ? '' : '（復元チェックは失敗）') + '。「次へ: ⑤ 保存する」でダウンロードしてください。 <button class="btn link" id="btnUndo">適用を取り消す</button></div>';
+  } else {
+    res.innerHTML = '<div class="note err">' + esc(summary) + ' <b>構文エラーがあります:</b><ul>' + errors.map(e => '<li>' + (e.name ? '<code>' + esc(e.name) + '</code>: ' : '') + esc(e.message) + '</li>').join('') + '</ul>このまま保存すると動きません。「適用を取り消す」で戻して、該当ブロックを AI に再依頼してください。 <button class="btn danger" id="btnUndo">適用を取り消す</button></div>';
+  }
+  $('btnUndo').addEventListener('click', undoApply);
+  $('btnApply').disabled = true;
+  $('applyInfo').textContent = '適用済み。返答欄を貼り直すと再解析します。';
+  STATE.parsed = null;
+  toast(errors.length ? '適用しましたが構文エラーがあります' : '適用しました');
+}
+
+// 直前の適用を取り消す
+function undoApply() {
+  if (STATE.prevSrc == null) { toast('取り消せる適用がありません'); return; }
+  STATE.doc = parseDocument(STATE.prevSrc);
+  STATE.prevSrc = null;
+  STATE.dirty = STATE.doc.src !== STATE.originalSrc;
+  STATE.lastApply = null;
+  saveSession();
+  renderStatus();
+  $('applyResult').innerHTML = '<div class="note">適用を取り消しました。返答を貼り直すか、「③ プロンプトに戻る」で再依頼してください。</div>';
+  analyzeResponse();
+  toast('取り消しました');
+}
+
+// ④ の描画
+function renderStep4() {
+  $('sampleRespBtns').classList.toggle('hidden', !STATE.isSample);
+  if ($('response').value.trim() && !STATE.parsed) analyzeResponse();
+}
+
+// ④ の初期化
+function initStep4() {
+  let timer = null;
+  $('response').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(analyzeResponse, 250); });
+  $('btnClearResp').addEventListener('click', () => { $('response').value = ''; STATE.parsed = null; renderParseResult(); });
+  $('btnSampleResp').addEventListener('click', () => { $('response').value = SAMPLE_RESPONSE; analyzeResponse(); });
+  $('btnSampleRespBad').addEventListener('click', () => { $('response').value = SAMPLE_RESPONSE_BAD; analyzeResponse(); });
+  $('parseCard').addEventListener('change', (e) => { if (e.target.matches('input[data-apply]')) updateApplyInfo(); });
+  $('parseCard').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-asadd]');
+    if (!b) return;
+    const it = STATE.parsed.items[Number(b.dataset.asadd)];
+    const named = splitJsTopLevel(it.code).filter(s => s.name);
+    if (!named.length) return;
+    STATE.parsed.items.push({ action: 'delete', name: it.name, after: null, code: '' });
+    it.after = it.name; it.action = 'add'; it.name = named[0].name; it.target = null;
+    annotateItems(STATE.parsed.items, STATE.doc, STATE.settings);
+    renderParseResult();
+  });
+  $('btnApply').addEventListener('click', applyChecked);
+  $('toStep5').addEventListener('click', () => gotoStep(5));
+}
+
+// ==== UI: ⑤ 保存 ====
+
+// ⑤ の描画
+function renderStep5() {
+  const s = STATE.lastApply || { replace: 0, add: 0, delete: 0 };
+  const changed = STATE.doc.src !== STATE.originalSrc;
+  $('summary').innerHTML = '<div><b>' + s.replace + '</b>置換</div><div><b>' + s.add + '</b>追加</div><div><b>' + s.delete + '</b>削除</div>' +
+    '<div style="background:' + (changed ? 'var(--yellow-l)' : 'var(--gray-l)') + '"><b style="font-size:14px">' + (changed ? '読み込み時から変更あり' : '読み込み時から変更なし') + '</b>' + fmtNum(STATE.doc.src.length) + ' 文字</div>';
+  $('downloadName').textContent = stampedFileName(STATE.fileName);
+  $('afterDownload').classList.add('hidden');
+}
+
+// ⑤ の初期化
+function initStep5() {
+  $('btnDownload').addEventListener('click', () => {
+    const name = stampedFileName(STATE.fileName);
+    downloadFile(name, STATE.doc.src, 'text/html;charset=utf-8');
+    STATE.dirty = false;
+    saveSession();
+    renderStatus();
+    $('afterDownload').classList.remove('hidden');
+    toast(name + ' をダウンロードしました');
+  });
+  $('btnContinue').addEventListener('click', () => { STATE.originalSrc = STATE.doc.src; STATE.lastApply = null; STATE.prevSrc = null; $('response').value = ''; STATE.parsed = null; renderParseResult(); gotoStep(2); });
+  $('btnRestart').addEventListener('click', () => gotoStep(1));
+  $('btnExportParts').addEventListener('click', () => {
+    if (!STATE.selected.size) { toast('先に「② 選ぶ」でブロックを選んでください'); return; }
+    downloadFile(safeFileName(STATE.fileName.replace(/\.[^.]*$/, '')) + '.parts.js', makePartsJs(STATE.doc, STATE.selected, STATE.fileName), 'text/javascript;charset=utf-8');
+    toast('部品を書き出しました');
+  });
+  $('btnExportCatalog').addEventListener('click', () => { downloadFile(safeFileName(STATE.fileName.replace(/\.[^.]*$/, '')) + '.catalog.md', makeCatalog(STATE.doc, STATE.fileName), 'text/markdown;charset=utf-8'); toast('カタログを書き出しました'); });
+  $('btnExportZip').addEventListener('click', () => {
+    const files = STATE.doc.blocks.filter(b => b.kind !== 'trivia').map((b, i) => ({ name: String(i + 1).padStart(4, '0') + '_' + safeFileName(b.key) + (b.lang === 'js' ? '.js' : b.lang === 'css' ? '.css' : '.html'), data: blockCode(b) }));
+    files.push({ name: '_catalog.md', data: makeCatalog(STATE.doc, STATE.fileName) });
+    downloadFile(safeFileName(STATE.fileName.replace(/\.[^.]*$/, '')) + '.blocks.zip', new Blob([makeZip(files)], { type: 'application/zip' }));
+    toast('zip を書き出しました');
+  });
+}
+
+// ==== UI: 設定・共通 ====
+
+// 設定モーダルを開く
+function openSettings() {
+  const t = STATE.settings.templates;
+  const host = $('modalHost');
+  const kindOpts = Object.entries(t.kinds).map(([k, v]) => '<option value="' + k + '">' + esc(v.label) + '</option>').join('');
+  host.innerHTML = '<div class="modal-bg" id="modalBg"><div class="modal"><h2>⚙ 設定</h2>' +
+    '<p class="small muted">テンプレートの {{TASK}} {{BLOCKS}} {{RELATED}} {{TOC}} {{FULL}} {{FILE}} {{RULES}} {{FORMAT}} {{ANCHOR}} はプロンプト生成時に置き換わります。</p>' +
+    '<h3 class="small">共通ヘッダ</h3><textarea id="setHeader" rows="5">' + esc(t.header) + '</textarea>' +
+    '<h3 class="small">依頼の種類ごとの本文 <select id="setKind">' + kindOpts + '</select></h3><textarea id="setKindBody" rows="10"></textarea>' +
+    '<h3 class="small">全文で依頼（従来方式）</h3><textarea id="setFull" rows="5">' + esc(t.full) + '</textarea>' +
+    '<h3 class="small">省略時の再依頼</h3><textarea id="setReask" rows="3">' + esc(t.reask) + '</textarea>' +
+    '<h3 class="small">省略サインの正規表現（1 行 1 パターン）</h3><textarea id="setOmit" rows="4">' + esc(STATE.settings.omissionPatterns.join('\n')) + '</textarea>' +
+    '<div class="row" style="margin-top:14px"><button class="btn primary" id="setSave">保存して閉じる</button><button class="btn" id="setCancel">キャンセル</button><span class="grow"></span><button class="btn danger" id="setReset">初期値に戻す</button></div>' +
+    '<p class="small muted" style="margin-top:10px">' + esc(APP_NAME + ' ' + APP_VERSION) + ' / 設定はこのブラウザの localStorage に保存されます。</p></div></div>';
+  const kindSel = $('setKind');
+  const bodies = Object.fromEntries(Object.entries(t.kinds).map(([k, v]) => [k, v.body]));
+  let curKind = kindSel.value;
+  $('setKindBody').value = bodies[curKind];
+  kindSel.addEventListener('change', () => { bodies[curKind] = $('setKindBody').value; curKind = kindSel.value; $('setKindBody').value = bodies[curKind]; });
+  $('setSave').addEventListener('click', () => {
+    bodies[curKind] = $('setKindBody').value;
+    t.header = $('setHeader').value; t.full = $('setFull').value; t.reask = $('setReask').value;
+    for (const k of Object.keys(t.kinds)) t.kinds[k].body = bodies[k];
+    STATE.settings.omissionPatterns = $('setOmit').value.split('\n').map(s => s.trim()).filter(Boolean);
+    saveSettings(); host.innerHTML = ''; toast('設定を保存しました');
+    if (STATE.step === 3) renderPrompt();
+  });
+  $('setCancel').addEventListener('click', () => { host.innerHTML = ''; });
+  $('setReset').addEventListener('click', () => { if (!confirm('テンプレートと省略サインを初期値に戻します。よろしいですか？')) return; STATE.settings = { templates: JSON.parse(JSON.stringify(DEFAULT_TEMPLATES)), omissionPatterns: DEFAULT_OMISSION_PATTERNS.slice() }; saveSettings(); host.innerHTML = ''; openSettings(); });
+  $('modalBg').addEventListener('click', (e) => { if (e.target.id === 'modalBg') host.innerHTML = ''; });
+}
+
+// 最初からやり直す
+function resetAll() {
+  if (STATE.dirty && !confirm('未保存の変更があります。破棄して最初からやり直しますか？')) return;
+  try { localStorage.removeItem(LS_SESSION); } catch (e) { /* 無視 */ }
+  STATE.doc = null; STATE.fileName = ''; STATE.originalSrc = ''; STATE.prevSrc = null; STATE.selected = new Set(); STATE.activeKey = null;
+  STATE.parsed = null; STATE.lastApply = null; STATE.dirty = false; STATE.isSample = false; STATE.task = '';
+  $('loadResult').classList.add('hidden'); $('toStep2').classList.add('hidden'); $('resumeCard').classList.add('hidden');
+  $('response').value = ''; $('task').value = ''; $('prompt').value = '';
+  renderStatus();
+  gotoStep(1);
+}
+
+// 共通の初期化
+function initCommon() {
+  $('steps').addEventListener('click', (e) => { const li = e.target.closest('li[data-step]'); if (li) gotoStep(Number(li.dataset.step)); });
+  document.querySelectorAll('[data-goto]').forEach(b => b.addEventListener('click', () => gotoStep(Number(b.dataset.goto))));
+  document.querySelectorAll('.help-btn').forEach(b => b.addEventListener('click', () => toggleHelp(Number(b.dataset.help))));
+  $('btnSettings').addEventListener('click', openSettings);
+  $('btnReset').addEventListener('click', resetAll);
+  window.addEventListener('beforeunload', (e) => { if (STATE.dirty) { e.preventDefault(); e.returnValue = ''; } });
+}
+
+// ==== 起動 ====
+
+// アプリを起動する
+function init() {
+  STATE.settings = loadSettings();
+  initCommon();
+  initStep1();
+  initStep2();
+  initStep3();
+  initStep4();
+  initStep5();
+  renderSteps();
+  renderStatus();
+  gotoStep(1);
+}
+
+// ==== サンプル ====
+
+// 練習用のサンプルツール（規約に沿った小さな HTML）
+const SAMPLE_APP = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>作業時間集計（サンプル）</title>
+<style>
+/* ==== 基本 ==== */
+body { font-family: sans-serif; margin: 20px; }
+h1 { font-size: 18px; }
+/* ==== 入力フォーム ==== */
+.form input { padding: 4px; margin-right: 6px; }
+/* ==== 一覧テーブル ==== */
+table { border-collapse: collapse; margin-top: 12px; }
+td, th { border: 1px solid #ccc; padding: 4px 8px; }
+</style>
+</head>
+<body>
+<!-- ==== 画面: 入力 ==== -->
+<h1>作業時間集計</h1>
+<div class="form">
+  <input id="who" placeholder="担当者">
+  <input id="min" placeholder="分" type="number">
+  <button onclick="onAdd()">追加</button>
+</div>
+<!-- ==== 画面: 一覧 ==== -->
+<table id="tbl"><thead><tr><th>担当者</th><th>分</th></tr></thead><tbody></tbody></table>
+<p>合計: <span id="total">0:00</span></p>
+
+<script>
+// ==== 状態 ====
+
+// アプリの状態
+const STATE = { rows: [] };
+
+// ==== 計算 ====
+
+// 入力行を正規化する
+function parseRow(who, min) {
+  return { who: String(who || '').trim(), minutes: Number(min) };
+}
+
+// 分の合計を返す
+function sumMinutes(rows) {
+  return rows.map(r => r.minutes).reduce((a, b) => a + b);
+}
+
+// 分を "H:MM" にする
+function formatMinutes(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h + ':' + String(m).padStart(2, '0');
+}
+
+// ==== 画面 ====
+
+// 一覧を描画する
+function renderTable() {
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = STATE.rows.map(r => '<tr><td>' + r.who + '</td><td>' + r.minutes + '</td></tr>').join('');
+  document.getElementById('total').textContent = formatMinutes(sumMinutes(STATE.rows));
+}
+
+// 追加ボタン
+function onAdd() {
+  const row = parseRow(document.getElementById('who').value, document.getElementById('min').value);
+  if (!row.who || !(row.minutes > 0)) { alert('担当者と分を入れてください'); return; }
+  STATE.rows.push(row);
+  renderTable();
+}
+
+// 起動
+function init() {
+  renderTable();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+<\/script>
+</body>
+</html>
+`;
+
+// サンプルの AI 返答（正しい形式）
+const SAMPLE_RESPONSE = `原因: reduce に初期値がないため、rows が空配列のとき TypeError になります。
+初期値 0 を渡し、数値でない値も無視するようにしました。
+
+=== BLOCK: sumMinutes ===
+// 分の合計を返す（0 件なら 0。数値でない行は無視）
+function sumMinutes(rows) {
+  return (rows || []).reduce((a, r) => a + (Number.isFinite(r.minutes) ? r.minutes : 0), 0);
+}
+=== END ===
+
+=== NEW BLOCK: averageMinutes | after: sumMinutes ===
+// 1 行あたりの平均分（0 件なら 0）
+function averageMinutes(rows) {
+  if (!rows || rows.length === 0) return 0;
+  return Math.round(sumMinutes(rows) / rows.length);
+}
+=== END ===
+
+動作確認:
+1. 何も追加せずに開いて合計が 0:00 のまま例外が出ないこと
+2. 2 行追加して合計が正しいこと
+`;
+
+// サンプルの AI 返答（省略サイン入り。警告の確認用）
+const SAMPLE_RESPONSE_BAD = `=== BLOCK: renderTable ===
+// 一覧を描画する
+function renderTable() {
+  const tb = document.querySelector('#tbl tbody');
+  // ...省略（変更なし）...
+  document.getElementById('total').textContent = formatMinutes(sumMinutes(STATE.rows));
+}
+=== END ===
+`;
+
+if (typeof document !== 'undefined' && typeof window !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', init);
+}
+</script>
+</body>
+</html>

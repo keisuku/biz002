@@ -1,0 +1,8 @@
+=== BLOCK: renderTable ===
+// 一覧を描画する
+function renderTable() {
+  const tb = document.querySelector('#tbl tbody');
+  // ...省略（変更なし）...
+  document.getElementById('total').textContent = formatMinutes(sumMinutes(STATE.rows));
+}
+=== END ===

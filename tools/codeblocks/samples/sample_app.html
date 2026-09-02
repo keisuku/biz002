@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>作業時間集計（サンプル）</title>
+<style>
+/* ==== 基本 ==== */
+body { font-family: sans-serif; margin: 20px; }
+h1 { font-size: 18px; }
+/* ==== 入力フォーム ==== */
+.form input { padding: 4px; margin-right: 6px; }
+/* ==== 一覧テーブル ==== */
+table { border-collapse: collapse; margin-top: 12px; }
+td, th { border: 1px solid #ccc; padding: 4px 8px; }
+</style>
+</head>
+<body>
+<!-- ==== 画面: 入力 ==== -->
+<h1>作業時間集計</h1>
+<div class="form">
+  <input id="who" placeholder="担当者">
+  <input id="min" placeholder="分" type="number">
+  <button onclick="onAdd()">追加</button>
+</div>
+<!-- ==== 画面: 一覧 ==== -->
+<table id="tbl"><thead><tr><th>担当者</th><th>分</th></tr></thead><tbody></tbody></table>
+<p>合計: <span id="total">0:00</span></p>
+
+<script>
+// ==== 状態 ====
+
+// アプリの状態
+const STATE = { rows: [] };
+
+// ==== 計算 ====
+
+// 入力行を正規化する
+function parseRow(who, min) {
+  return { who: String(who || '').trim(), minutes: Number(min) };
+}
+
+// 分の合計を返す
+function sumMinutes(rows) {
+  return rows.map(r => r.minutes).reduce((a, b) => a + b);
+}
+
+// 分を "H:MM" にする
+function formatMinutes(min) {
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h + ':' + String(m).padStart(2, '0');
+}
+
+// ==== 画面 ====
+
+// 一覧を描画する
+function renderTable() {
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = STATE.rows.map(r => '<tr><td>' + r.who + '</td><td>' + r.minutes + '</td></tr>').join('');
+  document.getElementById('total').textContent = formatMinutes(sumMinutes(STATE.rows));
+}
+
+// 追加ボタン
+function onAdd() {
+  const row = parseRow(document.getElementById('who').value, document.getElementById('min').value);
+  if (!row.who || !(row.minutes > 0)) { alert('担当者と分を入れてください'); return; }
+  STATE.rows.push(row);
+  renderTable();
+}
+
+// 起動
+function init() {
+  renderTable();
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

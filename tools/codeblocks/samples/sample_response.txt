@@ -1,0 +1,21 @@
+原因: reduce に初期値がないため、rows が空配列のとき TypeError になります。
+初期値 0 を渡し、数値でない値も無視するようにしました。
+
+=== BLOCK: sumMinutes ===
+// 分の合計を返す（0 件なら 0。数値でない行は無視）
+function sumMinutes(rows) {
+  return (rows || []).reduce((a, r) => a + (Number.isFinite(r.minutes) ? r.minutes : 0), 0);
+}
+=== END ===
+
+=== NEW BLOCK: averageMinutes | after: sumMinutes ===
+// 1 行あたりの平均分（0 件なら 0）
+function averageMinutes(rows) {
+  if (!rows || rows.length === 0) return 0;
+  return Math.round(sumMinutes(rows) / rows.length);
+}
+=== END ===
+
+動作確認:
+1. 何も追加せずに開いて合計が 0:00 のまま例外が出ないこと
+2. 2 行追加して合計が正しいこと
